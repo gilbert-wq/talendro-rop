@@ -34,7 +34,7 @@ export function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="bg-white/10 backdrop-blur rounded-2xl p-4 mb-4">
-            <img src="/talendro-logo.png" alt="Talendro Solutions" className="h-16 w-auto object-contain" />
+            <img src="/talendro-logo.svg" alt="Talendro Solutions" className="h-16 w-auto object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-white">Talendro ROP</h1>
           <p className="text-sm text-white/50 mt-1">Recruit. Track. Submit. Hire.</p>
@@ -42,7 +42,7 @@ export function LoginPage() {
 
         {/* Card */}
         <div className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-6 shadow-2xl">
-          <h2 className="text-lg font-semibold text-white mb-5">Sign in to your account</h2>
+          <h2 className="text-lg font-semibold text-white mb-5">Sign in to your account da kanna</h2>
 
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-200 text-sm">
