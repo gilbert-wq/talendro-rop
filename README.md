@@ -151,7 +151,7 @@ Follow prompts. Add environment variables when asked.
 ```
 talendro-rop/
 ├── public/
-│   ├── talendro-logo.png
+│   ├── talendro-logo.svg
 │   └── favicon.svg
 ├── src/
 │   ├── components/

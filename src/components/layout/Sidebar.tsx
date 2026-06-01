@@ -68,7 +68,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         collapsed ? "p-3 justify-center" : "p-4 gap-3"
       )}>
         <img
-          src="/talendro-logo.png"
+          src="/talendro-logo.svg"
           alt="Talendro Solutions"
           className={cn("object-contain flex-shrink-0", collapsed ? "w-8 h-8" : "w-10 h-10")}
         />

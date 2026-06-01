@@ -32,7 +32,7 @@ export function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-white/10 backdrop-blur rounded-2xl p-4 mb-4">
-            <img src="/talendro-logo.png" alt="Talendro Solutions" className="h-16 w-auto object-contain" />
+            <img src="/talendro-logo.svg" alt="Talendro Solutions" className="h-16 w-auto object-contain" />
           </div>
         </div>
 

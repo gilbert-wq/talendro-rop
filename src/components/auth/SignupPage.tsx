@@ -56,7 +56,7 @@ export function SignupPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-white/10 backdrop-blur rounded-2xl p-4 mb-4">
-            <img src="/talendro-logo.png" alt="Talendro Solutions" className="h-16 w-auto object-contain" />
+            <img src="/talendro-logo.svg" alt="Talendro Solutions" className="h-16 w-auto object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-white">Create Account</h1>
           <p className="text-sm text-white/50 mt-1">Join Talendro ROP</p>

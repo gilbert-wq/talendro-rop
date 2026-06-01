@@ -38,7 +38,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-3">
-          <img src="/talendro-logo.png" alt="Talendro" className="h-12 w-auto mx-auto opacity-50" />
+          <img src="/talendro-logo.svg" alt="Talendro" className="h-12 w-auto mx-auto opacity-50" />
           <div className="h-1 w-32 bg-muted rounded-full overflow-hidden mx-auto">
             <div className="h-full w-full bg-gradient-to-r from-primary to-secondary rounded-full animate-pulse" />
           </div>
