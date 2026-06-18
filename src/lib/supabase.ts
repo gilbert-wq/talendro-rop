@@ -15,6 +15,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 })
 
+// NOTE: this Database type documents the full 16-table schema (it was
+// previously missing 6 tables — candidate_documents, candidate_notes,
+// candidate_stage_history, teams, team_members, targets — now added).
+// It is intentionally NOT passed as createClient<Database>(...) yet: doing
+// so requires updating every relationship-select string across
+// src/lib/services.ts (e.g. `*, candidates(*), vendors(vendor_name)`) to
+// match supabase-js's typed-join inference, which is a larger follow-up
+// refactor. Treat this type as the source of truth for the schema shape
+// in the meantime.
 export type Database = {
   public: {
     Tables: {
@@ -127,6 +136,7 @@ export type Database = {
           submission_date: string
           requirement_id: string
           candidate_id: string
+          vendor_id: string | null
           partner_name: string | null
           status: 'sourced' | 'submitted' | 'shortlisted' | 'interview_scheduled' | 'l1_cleared' | 'l2_cleared' | 'final_round' | 'offered' | 'joined' | 'rejected'
           notes: string | null
@@ -201,6 +211,86 @@ export type Database = {
         }
         Insert: Omit<Database['public']['Tables']['notifications']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>
+      }
+      candidate_documents: {
+        Row: {
+          id: string
+          candidate_id: string
+          document_name: string
+          document_type: 'resume' | 'offer_letter' | 'id_proof' | 'certificate' | 'other'
+          file_url: string
+          file_size: number | null
+          uploaded_by: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['candidate_documents']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['candidate_documents']['Insert']>
+      }
+      candidate_notes: {
+        Row: {
+          id: string
+          candidate_id: string
+          note: string
+          created_by: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['candidate_notes']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['candidate_notes']['Insert']>
+      }
+      candidate_stage_history: {
+        Row: {
+          id: string
+          submission_id: string
+          candidate_id: string
+          previous_status: string | null
+          new_status: string
+          changed_by: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['candidate_stage_history']['Row'], 'id' | 'created_at'>
+        Update: never
+      }
+      teams: {
+        Row: {
+          id: string
+          team_name: string
+          manager_id: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['teams']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['teams']['Insert']>
+      }
+      team_members: {
+        Row: {
+          id: string
+          team_id: string
+          profile_id: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['team_members']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['team_members']['Insert']>
+      }
+      targets: {
+        Row: {
+          id: string
+          profile_id: string | null
+          team_id: string | null
+          period_type: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+          period_start: string
+          period_end: string
+          target_submissions: number | null
+          target_interviews: number | null
+          target_offers: number | null
+          target_joinings: number | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['targets']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['targets']['Insert']>
       }
     }
   }

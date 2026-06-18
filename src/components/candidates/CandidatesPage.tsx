@@ -11,7 +11,7 @@ import { Label, Textarea } from '@/components/ui/components'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/forms'
 import { DataTable } from '@/components/ui/data-table'
-import { formatDate, formatCTC, downloadCSV, cn } from '@/lib/utils'
+import { formatDate, formatCTC, downloadCSV, cn, escapeFilterValue, openSignedFile } from '@/lib/utils'
 
 interface Candidate {
   id: string
@@ -109,10 +109,12 @@ export function CandidatesPage() {
     }
     // Duplicate detection
     if (!editing) {
+      const mobile = escapeFilterValue(form.mobile_number)
+      const email = escapeFilterValue(form.email_address)
       const { data: existing } = await supabase
         .from('candidates')
         .select('id, candidate_name')
-        .or(`mobile_number.eq.${form.mobile_number},email_address.eq.${form.email_address}`)
+        .or(`mobile_number.eq.${mobile},email_address.eq.${email}`)
       if (existing && existing.length > 0) {
         toast({ title: 'Duplicate detected', description: `Candidate ${existing[0].candidate_name} already exists with same mobile or email`, variant: 'destructive' })
         return
@@ -123,12 +125,11 @@ export function CandidatesPage() {
     try {
       let resume_url = editing?.resume_url ?? null
       if (resumeFile) {
-        const path = `resumes/${Date.now()}_${resumeFile.name}`
-        const { error } = await supabase.storage.from('resumes').upload(path, resumeFile)
-        if (!error) {
-          const { data } = supabase.storage.from('resumes').getPublicUrl(path)
-          resume_url = data.publicUrl
-        }
+        const path = `${editing?.id ?? 'new'}/${Date.now()}_${resumeFile.name}`
+        const { error } = await supabase.storage.from('resumes').upload(path, resumeFile, { upsert: true })
+        // Bucket is private — store the storage path; a fresh signed URL is
+        // generated on demand whenever the resume is opened (see openSignedFile).
+        if (!error) resume_url = path
       }
 
       const payload = {
@@ -213,8 +214,14 @@ export function CandidatesPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           {row.original.resume_url && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Download Resume" asChild>
-              <a href={row.original.resume_url} target="_blank" rel="noopener noreferrer"><FileText className="h-3.5 w-3.5" /></a>
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7" title="Download Resume" aria-label="Download Resume"
+              onClick={async () => {
+                const { error } = await openSignedFile('resumes', row.original.resume_url!)
+                if (error) toast({ title: 'Could not open resume', variant: 'destructive' })
+              }}
+            >
+              <FileText className="h-3.5 w-3.5" />
             </Button>
           )}
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Timeline" onClick={() => openTimeline(row.original)}>
@@ -357,7 +364,17 @@ export function CandidatesPage() {
               <Input type="file" accept=".pdf,.docx,.doc" onChange={e => setResumeFile(e.target.files?.[0] ?? null)} />
               {editing?.resume_url && !resumeFile && (
                 <p className="text-xs text-muted-foreground">
-                  Current: <a href={editing.resume_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Resume</a>
+                  Current:{' '}
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={async () => {
+                      const { error } = await openSignedFile('resumes', editing.resume_url!)
+                      if (error) toast({ title: 'Could not open resume', variant: 'destructive' })
+                    }}
+                  >
+                    View Resume
+                  </button>
                 </p>
               )}
             </div>

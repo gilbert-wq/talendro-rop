@@ -42,7 +42,7 @@ export function LoginPage() {
 
         {/* Card */}
         <div className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-6 shadow-2xl">
-          <h2 className="text-lg font-semibold text-white mb-5">Sign in to your account da kanna</h2>
+          <h2 className="text-lg font-semibold text-white mb-5">Sign in to your account</h2>
 
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-200 text-sm">

@@ -216,14 +216,16 @@ export function CandidateTimeline({ candidateId, candidateName }: Props) {
                 <p className="text-xs text-muted-foreground capitalize">{doc.document_type.replace(/_/g, ' ')} · {formatDate(doc.created_at)}</p>
               </div>
               <div className="flex gap-1">
-                <a
-                  href={doc.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={async () => {
+                    const { url, error } = await candidateDocumentsService.getSignedUrl(doc.file_url)
+                    if (error || !url) { toast({ title: 'Could not open document', variant: 'destructive' }); return }
+                    window.open(url, '_blank', 'noopener,noreferrer')
+                  }}
                   className="text-xs text-primary hover:underline px-2 py-1 rounded"
                 >
                   View
-                </a>
+                </button>
                 <button
                   onClick={() => handleDeleteDoc(doc)}
                   className="text-xs text-destructive hover:underline px-2 py-1 rounded"

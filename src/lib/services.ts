@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { escapeFilterValue } from './utils'
 import type {
   Profile, Client, Vendor, Requirement, Candidate,
   Submission, Interview, Offer, Team, TeamMember, Target,
@@ -27,7 +28,7 @@ export const profilesService = {
 // ─── CLIENTS ─────────────────────────────────────────────────────────────────
 export const clientsService = {
   getAll: () =>
-    supabase.from('clients').select('*').order('client_name'),
+    supabase.from('clients').select('*').order('client_name').limit(2000),
 
   getActive: () =>
     supabase.from('clients').select('id, client_name').eq('status', 'active').order('client_name'),
@@ -45,7 +46,10 @@ export const clientsService = {
 // ─── VENDORS ─────────────────────────────────────────────────────────────────
 export const vendorsService = {
   getAll: () =>
-    supabase.from('vendors').select('*').order('vendor_name'),
+    supabase.from('vendors').select('*').order('vendor_name').limit(2000),
+
+  getActive: () =>
+    supabase.from('vendors').select('id, vendor_name').eq('status', 'active').order('vendor_name'),
 
   create: (data: Omit<Vendor, 'id' | 'created_at' | 'updated_at'>) =>
     supabase.from('vendors').insert(data).select().single(),
@@ -62,7 +66,8 @@ export const requirementsService = {
   getAll: () =>
     supabase.from('requirements')
       .select('*, clients(client_name)')
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(2000),
 
   getOpen: () =>
     supabase.from('requirements')
@@ -94,21 +99,29 @@ export const requirementsService = {
 // ─── CANDIDATES ─────────────────────────────────────────────────────────────────
 export const candidatesService = {
   getAll: () =>
-    supabase.from('candidates').select('*').order('created_at', { ascending: false }),
+    // Capped to keep the initial fetch bounded as the candidate pool grows.
+    // TODO: move to true server-side pagination (.range()) once list views
+    // support page-by-page fetching instead of client-side-only paging.
+    supabase.from('candidates').select('*').order('created_at', { ascending: false }).limit(2000),
 
   getById: (id: string) =>
     supabase.from('candidates').select('*').eq('id', id).single(),
 
-  search: (query: string) =>
-    supabase.from('candidates')
+  search: (query: string) => {
+    const q = escapeFilterValue(query)
+    return supabase.from('candidates')
       .select('id, candidate_name, mobile_number, email_address, current_location, total_experience, skills')
-      .or(`candidate_name.ilike.%${query}%,mobile_number.ilike.%${query}%,email_address.ilike.%${query}%`),
+      .or(`candidate_name.ilike.%${q}%,mobile_number.ilike.%${q}%,email_address.ilike.%${q}%`)
+  },
 
-  checkDuplicate: (mobile: string, email: string, excludeId?: string) =>
-    supabase.from('candidates')
+  checkDuplicate: (mobile: string, email: string, excludeId?: string) => {
+    const m = escapeFilterValue(mobile)
+    const e = escapeFilterValue(email)
+    return supabase.from('candidates')
       .select('id, candidate_name')
-      .or(`mobile_number.eq.${mobile},email_address.eq.${email}`)
-      .neq('id', excludeId ?? '00000000-0000-0000-0000-000000000000'),
+      .or(`mobile_number.eq.${m},email_address.eq.${e}`)
+      .neq('id', excludeId ?? '00000000-0000-0000-0000-000000000000')
+  },
 
   create: (data: Omit<Candidate, 'id' | 'created_at' | 'updated_at'>) =>
     supabase.from('candidates').insert(data).select().single(),
@@ -129,27 +142,35 @@ export const candidateDocumentsService = {
       .order('created_at', { ascending: false }),
 
   upload: async (candidateId: string, file: File, documentType: string, uploadedBy: string) => {
-    const ext = file.name.split('.').pop()
     const path = `${candidateId}/${Date.now()}_${file.name}`
     const { error: uploadError } = await supabase.storage
       .from('candidate-documents')
       .upload(path, file)
     if (uploadError) return { data: null, error: uploadError }
-    const { data: { publicUrl } } = supabase.storage
-      .from('candidate-documents')
-      .getPublicUrl(path)
+    // Bucket is private — store the storage path, not a public URL.
+    // A fresh signed URL is generated on demand via getSignedUrl().
     return supabase.from('candidate_documents').insert({
       candidate_id: candidateId,
       document_name: file.name,
       document_type: documentType,
-      file_url: publicUrl,
+      file_url: path,
       file_size: file.size,
       uploaded_by: uploadedBy,
     }).select().single()
   },
 
+  getSignedUrl: async (path: string, expiresIn = 3600) => {
+    const { data, error } = await supabase.storage.from('candidate-documents').createSignedUrl(path, expiresIn)
+    return { url: data?.signedUrl ?? null, error }
+  },
+
   delete: async (doc: CandidateDocument) => {
-    const path = doc.file_url.split('/candidate-documents/')[1]
+    // file_url now stores the raw storage path (private bucket); older rows
+    // created before this fix may still hold a full public URL, so fall back
+    // to extracting the path from it for backwards compatibility.
+    const path = doc.file_url.includes('/candidate-documents/')
+      ? doc.file_url.split('/candidate-documents/')[1]
+      : doc.file_url
     await supabase.storage.from('candidate-documents').remove([path])
     return supabase.from('candidate_documents').delete().eq('id', doc.id)
   },
@@ -189,18 +210,25 @@ export const stageHistoryService = {
 export const submissionsService = {
   getAll: () =>
     supabase.from('submissions')
-      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name)')
-      .order('submission_date', { ascending: false }),
+      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name), vendors(vendor_name)')
+      .order('submission_date', { ascending: false })
+      .limit(2000),
 
   getById: (id: string) =>
     supabase.from('submissions')
-      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name))')
+      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), vendors(vendor_name)')
       .eq('id', id).single(),
 
   getByStatus: (status: string) =>
     supabase.from('submissions')
-      .select('*, candidates(candidate_name, mobile_number, current_location, total_experience, expected_ctc, skills), requirements(fg_id, requirement_title)')
+      .select('*, candidates(candidate_name, mobile_number, current_location, total_experience, expected_ctc, skills), requirements(fg_id, requirement_title), vendors(vendor_name)')
       .eq('status', status),
+
+  getByVendor: (vendorId: string) =>
+    supabase.from('submissions')
+      .select('*, candidates(candidate_name), requirements(fg_id, requirement_title)')
+      .eq('vendor_id', vendorId)
+      .order('submission_date', { ascending: false }),
 
   checkDuplicate: (requirementId: string, candidateId: string) =>
     supabase.from('submissions')
@@ -208,7 +236,7 @@ export const submissionsService = {
       .eq('requirement_id', requirementId)
       .eq('candidate_id', candidateId),
 
-  create: (data: Omit<Submission, 'id' | 'created_at' | 'updated_at' | 'candidates' | 'requirements' | 'profiles'>) =>
+  create: (data: Omit<Submission, 'id' | 'created_at' | 'updated_at' | 'candidates' | 'requirements' | 'profiles' | 'vendors'>) =>
     supabase.from('submissions').insert(data).select().single(),
 
   update: (id: string, data: Partial<Submission>) =>
@@ -226,7 +254,8 @@ export const interviewsService = {
   getAll: () =>
     supabase.from('interviews')
       .select('*, candidates(candidate_name, mobile_number), requirements(fg_id, requirement_title)')
-      .order('interview_date', { ascending: false }),
+      .order('interview_date', { ascending: false })
+      .limit(2000),
 
   create: (data: Omit<Interview, 'id' | 'created_at' | 'updated_at' | 'candidates' | 'requirements'>) =>
     supabase.from('interviews').insert(data).select().single(),
@@ -243,7 +272,8 @@ export const offersService = {
   getAll: () =>
     supabase.from('offers')
       .select('*, candidates(candidate_name, mobile_number, email_address), requirements(fg_id, requirement_title)')
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(2000),
 
   create: (data: Omit<Offer, 'id' | 'created_at' | 'updated_at' | 'candidates' | 'requirements'>) =>
     supabase.from('offers').insert(data).select().single(),
@@ -424,28 +454,32 @@ export const dashboardService = {
 }
 
 // ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
+// All PII-bearing buckets (resumes, jd-files, candidate-documents) are
+// private. Upload helpers return the storage PATH, not a URL — callers
+// must request a fresh, short-lived signed URL whenever a file is actually
+// opened, via getSignedUrl() below (or the openSignedFile() helper in
+// src/lib/utils.ts).
 export const storageService = {
   uploadResume: async (candidateId: string, file: File) => {
     const path = `${candidateId}/${Date.now()}_${file.name}`
     const { error } = await supabase.storage.from('resumes').upload(path, file, { upsert: true })
-    if (error) return { url: null, error }
-    const { data } = supabase.storage.from('resumes').getPublicUrl(path)
-    return { url: data.publicUrl, error: null }
+    return { path: error ? null : path, error }
   },
 
   uploadJD: async (requirementId: string, file: File) => {
     const path = `${requirementId}/${Date.now()}_${file.name}`
     const { error } = await supabase.storage.from('jd-files').upload(path, file, { upsert: true })
-    if (error) return { url: null, error }
-    const { data } = supabase.storage.from('jd-files').getPublicUrl(path)
-    return { url: data.publicUrl, error: null }
+    return { path: error ? null : path, error }
   },
 
   uploadOfferLetter: async (offerId: string, file: File) => {
     const path = `${offerId}/${Date.now()}_${file.name}`
     const { error } = await supabase.storage.from('candidate-documents').upload(path, file, { upsert: true })
-    if (error) return { url: null, error }
-    const { data } = supabase.storage.from('candidate-documents').getPublicUrl(path)
-    return { url: data.publicUrl, error: null }
+    return { path: error ? null : path, error }
+  },
+
+  getSignedUrl: async (bucket: 'resumes' | 'jd-files' | 'candidate-documents', path: string, expiresIn = 3600) => {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
+    return { url: data?.signedUrl ?? null, error }
   },
 }

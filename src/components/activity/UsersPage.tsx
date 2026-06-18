@@ -40,10 +40,19 @@ export function UsersPage() {
   }
 
   const resetPassword = async (user: Profile) => {
-    const { error } = await supabase.auth.admin.generateLink({ type: 'recovery', email: user.email })
+    // SECURITY: supabase.auth.admin.* requires the service-role key and must
+    // never be called from a browser client (the anon key this app ships
+    // with cannot actually authorize it). The previous code called it
+    // anyway and silently relied on this fallback succeeding — a landmine,
+    // since "fixing" the failing admin call by adding a service-role key to
+    // a VITE_* env var would leak full database-bypass credentials to every
+    // visitor. resetPasswordForEmail is the correct, client-safe API.
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
     if (error) {
-      // Fallback: use resetPasswordForEmail
-      await supabase.auth.resetPasswordForEmail(user.email)
+      toast({ title: 'Could not send reset email', description: error.message, variant: 'destructive' })
+      return
     }
     toast({ title: 'Password reset email sent', variant: 'success' })
   }
@@ -89,25 +98,25 @@ export function UsersPage() {
           <div className="flex items-center gap-1">
             {u.status === 'pending' && (
               <>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Approve" onClick={() => updateStatus(u, 'approved')}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Approve" aria-label="Approve" onClick={() => updateStatus(u, 'approved')}>
                   <CheckCircle className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Reject" onClick={() => updateStatus(u, 'rejected')}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Reject" aria-label="Reject" onClick={() => updateStatus(u, 'rejected')}>
                   <XCircle className="h-3.5 w-3.5" />
                 </Button>
               </>
             )}
             {u.status === 'approved' && (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Deactivate" onClick={() => updateStatus(u, 'inactive')}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600" title="Deactivate" aria-label="Deactivate" onClick={() => updateStatus(u, 'inactive')}>
                 <UserX className="h-3.5 w-3.5" />
               </Button>
             )}
             {(u.status === 'inactive' || u.status === 'rejected') && (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Activate" onClick={() => updateStatus(u, 'approved')}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" title="Activate" aria-label="Activate" onClick={() => updateStatus(u, 'approved')}>
                 <UserCheck className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" title="Reset Password" onClick={() => resetPassword(u)}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" title="Reset Password" aria-label="Reset Password" onClick={() => resetPassword(u)}>
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </div>

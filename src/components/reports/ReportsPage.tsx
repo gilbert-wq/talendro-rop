@@ -16,6 +16,7 @@ export function ReportsPage() {
   const [recruiterData, setRecruiterData] = useState<any[]>([])
   const [statusData, setStatusData] = useState<any[]>([])
   const [clientData, setClientData] = useState<any[]>([])
+  const [vendorData, setVendorData] = useState<any[]>([])
   const [funnelData, setFunnelData] = useState<any[]>([])
   const [allSubmissions, setAllSubmissions] = useState<any[]>([])
   const [allCandidates, setAllCandidates] = useState<any[]>([])
@@ -30,7 +31,7 @@ export function ReportsPage() {
     since.setDate(since.getDate() - Number(period))
 
     const [{ data: subs }, { data: cands }, { data: reqs }, { data: profiles }] = await Promise.all([
-      supabase.from('submissions').select('*, candidates(candidate_name), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name)').gte('created_at', since.toISOString()),
+      supabase.from('submissions').select('*, candidates(candidate_name), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name), vendors(vendor_name)').gte('created_at', since.toISOString()),
       supabase.from('candidates').select('*').order('created_at', { ascending: false }),
       supabase.from('requirements').select('*, clients(client_name)').order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, full_name').eq('role', 'recruiter').eq('status', 'approved'),
@@ -69,6 +70,15 @@ export function ReportsPage() {
       cliMap[c] = (cliMap[c] ?? 0) + 1
     })
     setClientData(Object.entries(cliMap).slice(0, 8).map(([name, count]) => ({ name, count })))
+
+    // Vendor data — only counts submissions actually attributed to a vendor
+    // via the vendor_id FK (direct-sourced submissions are excluded here).
+    const vendMap: Record<string, number> = {}
+    subsData.forEach((s: any) => {
+      const v = s.vendors?.vendor_name
+      if (v) vendMap[v] = (vendMap[v] ?? 0) + 1
+    })
+    setVendorData(Object.entries(vendMap).slice(0, 8).map(([name, count]) => ({ name, count })))
 
     // Funnel
     const stages = ['sourced', 'submitted', 'shortlisted', 'interview_scheduled', 'offered', 'joined']
@@ -124,6 +134,7 @@ export function ReportsPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="recruiter">Recruiter Performance</TabsTrigger>
           <TabsTrigger value="client">Client Analytics</TabsTrigger>
+          <TabsTrigger value="vendor">Vendor Performance</TabsTrigger>
           <TabsTrigger value="funnel">Candidate Funnel</TabsTrigger>
         </TabsList>
 
@@ -214,6 +225,27 @@ export function ReportsPage() {
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Bar dataKey="count" fill="#22d3ee" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vendor">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Submissions by Vendor</CardTitle></CardHeader>
+            <CardContent>
+              {vendorData.length === 0 ? (
+                <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No vendor-attributed submissions in this period</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={vendorData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

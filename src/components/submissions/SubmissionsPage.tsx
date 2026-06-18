@@ -31,6 +31,7 @@ interface Submission {
   submission_date: string
   requirement_id: string
   candidate_id: string
+  vendor_id: string | null
   partner_name: string | null
   status: string
   notes: string | null
@@ -38,14 +39,16 @@ interface Submission {
   created_at: string
   candidates?: { candidate_name: string; mobile_number: string; email_address: string; current_location: string | null; total_experience: number | null; notice_period: number | null; current_ctc: number | null; expected_ctc: number | null; pan_number: string | null; date_of_birth: string | null; highest_qualification: string | null; university: string | null; passing_year: number | null; current_employer: string | null; can_join_within: number | null; preferred_location: string | null; skills: string[] }
   requirements?: { fg_id: string; requirement_title: string; clients?: { client_name: string } | null }
+  vendors?: { vendor_name: string } | null
 }
 
 interface Requirement { id: string; fg_id: string; requirement_title: string }
 interface Candidate { id: string; candidate_name: string; mobile_number: string }
+interface Vendor { id: string; vendor_name: string }
 
 const emptyForm = {
   submission_date: new Date().toISOString().split('T')[0],
-  requirement_id: '', candidate_id: '', partner_name: '', status: 'sourced', notes: '',
+  requirement_id: '', candidate_id: '', vendor_id: '', partner_name: '', status: 'sourced', notes: '',
 }
 
 export function SubmissionsPage() {
@@ -54,6 +57,7 @@ export function SubmissionsPage() {
   const [items, setItems] = useState<Submission[]>([])
   const [requirements, setRequirements] = useState<Requirement[]>([])
   const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Submission | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -63,14 +67,16 @@ export function SubmissionsPage() {
   useEffect(() => { fetchAll() }, [])
 
   const fetchAll = async () => {
-    const [{ data: subs }, { data: reqs }, { data: cands }] = await Promise.all([
-      supabase.from('submissions').select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name))').order('submission_date', { ascending: false }),
+    const [{ data: subs }, { data: reqs }, { data: cands }, { data: vends }] = await Promise.all([
+      supabase.from('submissions').select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), vendors(vendor_name)').order('submission_date', { ascending: false }),
       supabase.from('requirements').select('id, fg_id, requirement_title').eq('status', 'open'),
       supabase.from('candidates').select('id, candidate_name, mobile_number'),
+      supabase.from('vendors').select('id, vendor_name').eq('status', 'active').order('vendor_name'),
     ])
     setItems(subs ?? [])
     setRequirements(reqs ?? [])
     setCandidates(cands ?? [])
+    setVendors(vends ?? [])
   }
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setOpen(true) }
@@ -78,7 +84,7 @@ export function SubmissionsPage() {
     setEditing(s)
     setForm({
       submission_date: s.submission_date, requirement_id: s.requirement_id,
-      candidate_id: s.candidate_id, partner_name: s.partner_name ?? '',
+      candidate_id: s.candidate_id, vendor_id: s.vendor_id ?? '', partner_name: s.partner_name ?? '',
       status: s.status, notes: s.notes ?? '',
     })
     setOpen(true)
@@ -90,8 +96,16 @@ export function SubmissionsPage() {
     }
     setSaving(true)
     try {
+      // If a vendor was picked from the dropdown, keep partner_name (used by
+      // exports/reports) in sync with it automatically.
+      const selectedVendor = vendors.find(v => v.id === form.vendor_id)
+      const payload = {
+        ...form,
+        vendor_id: form.vendor_id || null,
+        partner_name: selectedVendor ? selectedVendor.vendor_name : (form.partner_name || null),
+      }
       if (editing) {
-        await supabase.from('submissions').update({ ...form, partner_name: form.partner_name || null }).eq('id', editing.id)
+        await supabase.from('submissions').update(payload).eq('id', editing.id)
         await logActivity({ module: 'Submissions', action: 'Updated submission status', details: form.status, recordId: editing.id })
         toast({ title: 'Submission updated', variant: 'success' })
       } else {
@@ -102,7 +116,7 @@ export function SubmissionsPage() {
           toast({ title: 'Duplicate submission', description: 'This candidate is already submitted for this requirement', variant: 'destructive' })
           setSaving(false); return
         }
-        await supabase.from('submissions').insert({ ...form, partner_name: form.partner_name || null, submitted_by: user!.id })
+        await supabase.from('submissions').insert({ ...payload, submitted_by: user!.id })
         // Create notification
         await supabase.from('notifications').insert({
           user_id: user!.id, title: 'New Submission',
@@ -127,6 +141,7 @@ export function SubmissionsPage() {
     'Position': s.requirements?.requirement_title ?? '',
     'Client': (s.requirements as any)?.clients?.client_name ?? '',
     'Partner': s.partner_name ?? '',
+    'Vendor': s.vendors?.vendor_name ?? '',
     'Candidate Name': s.candidates?.candidate_name ?? '',
     'Contact': s.candidates?.mobile_number ?? '',
     'Email': s.candidates?.email_address ?? '',
@@ -162,7 +177,10 @@ export function SubmissionsPage() {
       id: 'position', header: 'Position',
       cell: ({ row }) => <span className="text-xs">{row.original.requirements?.requirement_title}</span>,
     },
-    { accessorKey: 'partner_name', header: 'Partner', cell: ({ row }) => row.original.partner_name ?? '—' },
+    {
+      id: 'vendor', header: 'Vendor',
+      cell: ({ row }) => row.original.vendors?.vendor_name ?? row.original.partner_name ?? '—',
+    },
     {
       id: 'candidate_name', header: 'Candidate',
       cell: ({ row }) => <span className="font-semibold">{row.original.candidates?.candidate_name}</span>,
@@ -268,8 +286,20 @@ export function SubmissionsPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Partner / Vendor Name</Label>
-              <Input value={form.partner_name} onChange={e => setForm(f => ({ ...f, partner_name: e.target.value }))} placeholder="Partner company name" />
+              <Label>Vendor / Staffing Partner</Label>
+              <Select value={form.vendor_id || 'none'} onValueChange={v => setForm(f => ({ ...f, vendor_id: v === 'none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="Select vendor (optional)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (direct sourcing)</SelectItem>
+                  {vendors.map(v => (
+                    <SelectItem key={v.id} value={v.id}>{v.vendor_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Partner Name (free text, used if no vendor selected)</Label>
+              <Input value={form.partner_name} onChange={e => setForm(f => ({ ...f, partner_name: e.target.value }))} placeholder="Partner company name" disabled={!!form.vendor_id} />
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>

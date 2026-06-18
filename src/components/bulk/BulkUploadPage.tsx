@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import Papa from 'papaparse'
 import { Upload, Download, CheckCircle, AlertCircle, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -7,7 +8,7 @@ import { logActivity } from '@/lib/activityLogger'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/components'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/forms'
-import { generateFGId } from '@/lib/utils'
+import { generateFGId, escapeFilterValue } from '@/lib/utils'
 
 type UploadResult = { success: number; errors: string[] }
 
@@ -31,14 +32,17 @@ function downloadTemplate(type: string) {
 }
 
 function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.trim().split('\n')
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
-  return lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.trim().replace(/"/g, ''))
-    const obj: Record<string, string> = {}
-    headers.forEach((h, i) => { obj[h] = vals[i] ?? '' })
-    return obj
-  }).filter(row => Object.values(row).some(v => v))
+  // PapaParse correctly handles quoted fields containing commas/newlines and
+  // escaped quotes — the previous hand-rolled `line.split(',')` parser
+  // silently misaligned every column after any value containing a comma
+  // (e.g. an address like "Bangalore, Karnataka" or a name like "Smith, John").
+  const result = Papa.parse<Record<string, string>>(text.trim(), {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.trim(),
+    transform: (v) => v.trim(),
+  })
+  return result.data.filter(row => Object.values(row).some(v => v))
 }
 
 export function BulkUploadPage() {
@@ -66,7 +70,7 @@ export function BulkUploadPage() {
               errors.push(`Row ${i + 2}: Name, mobile, email required`); continue
             }
             const { data: existing } = await supabase.from('candidates')
-              .select('id').or(`mobile_number.eq.${row.mobile_number},email_address.eq.${row.email_address}`)
+              .select('id').or(`mobile_number.eq.${escapeFilterValue(row.mobile_number)},email_address.eq.${escapeFilterValue(row.email_address)}`)
             if (existing && existing.length > 0) {
               errors.push(`Row ${i + 2}: Duplicate — ${row.candidate_name}`); continue
             }

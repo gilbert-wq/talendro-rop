@@ -1,6 +1,27 @@
 -- ============================================================
 -- TALENDRO ROP - COMPLETE SUPABASE SQL MIGRATION
 -- Run this entire script in your Supabase SQL Editor
+--
+-- v1.1 REMEDIATION NOTES (security/ATS fixes applied):
+--   - profiles UPDATE policy split into admin/self policies with a
+--     WITH CHECK clause that blocks self-promotion to admin/approved
+--     (previously any signed-up user could grant themselves admin).
+--   - handle_new_user() no longer trusts a client-supplied "role" value
+--     from signup metadata (previously calling auth.signUp with
+--     options.data.role = 'admin' produced an instant, auto-approved
+--     admin account with no further exploit needed).
+--   - resumes / jd-files / candidate-documents storage buckets are
+--     now PRIVATE (previously public, exposing candidate PII with no
+--     authentication). Access is via signed URLs only.
+--   - notifications_insert now requires the inserting user to own the
+--     row or be an admin (previously WITH CHECK (true) let anyone
+--     write to anyone's notification inbox).
+--   - submissions.vendor_id added as a real FK to vendors, so the
+--     vendor submission flow can be reported on instead of relying on
+--     a free-text partner_name field.
+--   - DB-level CHECK constraints added for PAN format and non-negative
+--     CTC/notice-period, matching the client-side Zod validation so it
+--     can't be bypassed via direct API calls.
 -- ============================================================
 
 -- Enable UUID extension
@@ -148,6 +169,7 @@ CREATE TABLE IF NOT EXISTS submissions (
   submission_date DATE NOT NULL DEFAULT CURRENT_DATE,
   requirement_id UUID NOT NULL REFERENCES requirements(id) ON DELETE CASCADE,
   candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
+  vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL,
   partner_name TEXT,
   status TEXT NOT NULL DEFAULT 'sourced' CHECK (status IN (
     'sourced','submitted','shortlisted','interview_scheduled',
@@ -300,11 +322,27 @@ CREATE INDEX IF NOT EXISTS idx_submissions_requirement ON submissions(requiremen
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
 CREATE INDEX IF NOT EXISTS idx_submissions_submitted_by ON submissions(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_submissions_date ON submissions(submission_date DESC);
+CREATE INDEX IF NOT EXISTS idx_submissions_vendor ON submissions(vendor_id);
 
 CREATE INDEX IF NOT EXISTS idx_candidates_mobile ON candidates(mobile_number);
 CREATE INDEX IF NOT EXISTS idx_candidates_email ON candidates(email_address);
 CREATE INDEX IF NOT EXISTS idx_candidates_skills ON candidates USING GIN(skills);
 CREATE INDEX IF NOT EXISTS idx_candidates_created ON candidates(created_at DESC);
+
+-- Defense-in-depth: enforce the same rules the UI already validates with Zod,
+-- so direct API calls can't bypass them.
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS chk_pan_format;
+ALTER TABLE candidates ADD CONSTRAINT chk_pan_format
+  CHECK (pan_number IS NULL OR pan_number = '' OR pan_number ~ '^[A-Z]{5}[0-9]{4}[A-Z]{1}$');
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS chk_current_ctc_nonneg;
+ALTER TABLE candidates ADD CONSTRAINT chk_current_ctc_nonneg
+  CHECK (current_ctc IS NULL OR current_ctc >= 0);
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS chk_expected_ctc_nonneg;
+ALTER TABLE candidates ADD CONSTRAINT chk_expected_ctc_nonneg
+  CHECK (expected_ctc IS NULL OR expected_ctc >= 0);
+ALTER TABLE candidates DROP CONSTRAINT IF EXISTS chk_notice_period_nonneg;
+ALTER TABLE candidates ADD CONSTRAINT chk_notice_period_nonneg
+  CHECK (notice_period IS NULL OR notice_period >= 0);
 
 CREATE INDEX IF NOT EXISTS idx_requirements_fg_id ON requirements(fg_id);
 CREATE INDEX IF NOT EXISTS idx_requirements_status ON requirements(status);
@@ -388,13 +426,20 @@ FOR EACH ROW EXECUTE FUNCTION log_submission_stage_change();
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- SECURITY: role/status are NEVER taken from client-supplied
+  -- raw_user_meta_data. Previously this trusted NEW.raw_user_meta_data->>'role',
+  -- which meant anyone could call supabase.auth.signUp({ options: { data: {
+  -- role: 'admin' } } }) directly and receive an auto-approved admin account,
+  -- with no further exploit needed. Every new signup is now unconditionally
+  -- 'recruiter' / 'pending'; only an existing admin (via the profiles_update_admin
+  -- RLS policy) can promote a user afterwards.
   INSERT INTO profiles (id, email, full_name, role, status)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'recruiter'),
-    CASE WHEN COALESCE(NEW.raw_user_meta_data->>'role', 'recruiter') = 'admin' THEN 'approved' ELSE 'pending' END
+    'recruiter',
+    'pending'
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
@@ -464,8 +509,23 @@ CREATE POLICY "profiles_insert_own" ON profiles
   FOR INSERT WITH CHECK (id = auth.uid());
 
 DROP POLICY IF EXISTS "profiles_update_own" ON profiles;
-CREATE POLICY "profiles_update_own" ON profiles
-  FOR UPDATE USING (id = auth.uid() OR is_admin());
+
+-- Admins can update any profile, including role/status (approve/reject/promote).
+DROP POLICY IF EXISTS "profiles_update_admin" ON profiles;
+CREATE POLICY "profiles_update_admin" ON profiles
+  FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+
+-- Users can update their own row, but the incoming role/status MUST match
+-- what is already stored — this is what prevents self-promotion to admin
+-- or self-approval, which the previous USING-only policy allowed.
+DROP POLICY IF EXISTS "profiles_update_self" ON profiles;
+CREATE POLICY "profiles_update_self" ON profiles
+  FOR UPDATE USING (id = auth.uid())
+  WITH CHECK (
+    id = auth.uid()
+    AND role = (SELECT p.role FROM profiles p WHERE p.id = auth.uid())
+    AND status = (SELECT p.status FROM profiles p WHERE p.id = auth.uid())
+  );
 
 DROP POLICY IF EXISTS "profiles_admin_select_all" ON profiles;
 CREATE POLICY "profiles_admin_select_all" ON profiles
@@ -718,7 +778,7 @@ CREATE POLICY "notifications_select" ON notifications
 
 DROP POLICY IF EXISTS "notifications_insert" ON notifications;
 CREATE POLICY "notifications_insert" ON notifications
-  FOR INSERT WITH CHECK (true);
+  FOR INSERT WITH CHECK (user_id = auth.uid() OR is_admin());
 
 DROP POLICY IF EXISTS "notifications_update" ON notifications;
 CREATE POLICY "notifications_update" ON notifications
@@ -730,68 +790,70 @@ CREATE POLICY "notifications_delete" ON notifications
 
 -- ============================================================
 -- STORAGE BUCKETS
+-- SECURITY: buckets are PRIVATE. Public buckets bypass storage RLS
+-- entirely for reads, which previously exposed resumes, ID proofs,
+-- and offer letters (containing CTC) to anyone with a URL, with no
+-- authentication at all. The app must use createSignedUrl() to read
+-- objects, never getPublicUrl().
 -- ============================================================
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES
-  ('resumes', 'resumes', true, 10485760,
+  ('resumes', 'resumes', false, 10485760,
     ARRAY['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document']),
-  ('jd-files', 'jd-files', true, 10485760,
+  ('jd-files', 'jd-files', false, 10485760,
     ARRAY['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document']),
-  ('candidate-documents', 'candidate-documents', true, 10485760,
+  ('candidate-documents', 'candidate-documents', false, 10485760,
     ARRAY['application/pdf','image/jpeg','image/png','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document']),
   ('company-assets', 'company-assets', true, 5242880,
     ARRAY['image/jpeg','image/png','image/svg+xml','image/webp'])
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 
 -- ============================================================
 -- STORAGE RLS POLICIES
 -- ============================================================
 
--- RESUMES bucket
+-- RESUMES bucket (private — accessed only via signed URLs)
 DROP POLICY IF EXISTS "resumes_select" ON storage.objects;
 CREATE POLICY "resumes_select" ON storage.objects
-  FOR SELECT USING (bucket_id = 'resumes' AND auth.role() = 'authenticated');
+  FOR SELECT USING (bucket_id = 'resumes' AND is_approved_user());
 
 DROP POLICY IF EXISTS "resumes_insert" ON storage.objects;
 CREATE POLICY "resumes_insert" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'resumes' AND auth.role() = 'authenticated'
-    AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND status = 'approved')
-  );
+  FOR INSERT WITH CHECK (bucket_id = 'resumes' AND is_approved_user());
 
 DROP POLICY IF EXISTS "resumes_update" ON storage.objects;
 CREATE POLICY "resumes_update" ON storage.objects
-  FOR UPDATE USING (bucket_id = 'resumes' AND auth.role() = 'authenticated');
+  FOR UPDATE USING (bucket_id = 'resumes' AND is_approved_user());
 
 DROP POLICY IF EXISTS "resumes_delete" ON storage.objects;
 CREATE POLICY "resumes_delete" ON storage.objects
-  FOR DELETE USING (bucket_id = 'resumes' AND auth.role() = 'authenticated');
+  FOR DELETE USING (bucket_id = 'resumes' AND is_approved_user());
 
--- JD-FILES bucket
+-- JD-FILES bucket (private — accessed only via signed URLs)
 DROP POLICY IF EXISTS "jd_files_select" ON storage.objects;
 CREATE POLICY "jd_files_select" ON storage.objects
-  FOR SELECT USING (bucket_id = 'jd-files' AND auth.role() = 'authenticated');
+  FOR SELECT USING (bucket_id = 'jd-files' AND is_approved_user());
 
 DROP POLICY IF EXISTS "jd_files_insert" ON storage.objects;
 CREATE POLICY "jd_files_insert" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'jd-files' AND auth.role() = 'authenticated');
+  FOR INSERT WITH CHECK (bucket_id = 'jd-files' AND is_approved_user());
 
 DROP POLICY IF EXISTS "jd_files_delete" ON storage.objects;
 CREATE POLICY "jd_files_delete" ON storage.objects
-  FOR DELETE USING (bucket_id = 'jd-files' AND auth.role() = 'authenticated');
+  FOR DELETE USING (bucket_id = 'jd-files' AND is_approved_user());
 
--- CANDIDATE DOCUMENTS bucket
+-- CANDIDATE DOCUMENTS bucket (private — accessed only via signed URLs)
 DROP POLICY IF EXISTS "candidate_docs_select" ON storage.objects;
 CREATE POLICY "candidate_docs_select" ON storage.objects
-  FOR SELECT USING (bucket_id = 'candidate-documents' AND auth.role() = 'authenticated');
+  FOR SELECT USING (bucket_id = 'candidate-documents' AND is_approved_user());
 
 DROP POLICY IF EXISTS "candidate_docs_insert" ON storage.objects;
 CREATE POLICY "candidate_docs_insert" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'candidate-documents' AND auth.role() = 'authenticated');
+  FOR INSERT WITH CHECK (bucket_id = 'candidate-documents' AND is_approved_user());
 
 DROP POLICY IF EXISTS "candidate_docs_delete" ON storage.objects;
 CREATE POLICY "candidate_docs_delete" ON storage.objects
-  FOR DELETE USING (bucket_id = 'candidate-documents' AND auth.role() = 'authenticated');
+  FOR DELETE USING (bucket_id = 'candidate-documents' AND is_approved_user());
 
 -- COMPANY ASSETS bucket (admin only write)
 DROP POLICY IF EXISTS "company_assets_select" ON storage.objects;

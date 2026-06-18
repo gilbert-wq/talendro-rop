@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { supabase } from './supabase'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -116,4 +117,31 @@ export function downloadCSV(data: Record<string, unknown>[], filename: string) {
 
 export function truncate(str: string, len = 40): string {
   return str.length > len ? str.slice(0, len) + '…' : str
+}
+
+/**
+ * Escapes characters that are structurally significant in PostgREST's
+ * .or()/.filter() string syntax (comma, parens) so user-supplied search
+ * input can't alter or break the intended filter logic.
+ * https://postgrest.org/en/stable/references/api/tables_views.html#operators
+ */
+export function escapeFilterValue(value: string): string {
+  return value.replace(/[,()]/g, '')
+}
+
+/**
+ * Buckets that hold candidate/recruitment PII are private. Files must be
+ * opened via a short-lived signed URL generated at click-time rather than
+ * a permanently stored public URL.
+ */
+export async function openSignedFile(
+  bucket: 'resumes' | 'jd-files' | 'candidate-documents',
+  path: string
+): Promise<{ error: Error | null }> {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600)
+  if (error || !data?.signedUrl) {
+    return { error: error ?? new Error('Could not generate file link') }
+  }
+  window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  return { error: null }
 }

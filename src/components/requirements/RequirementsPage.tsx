@@ -11,7 +11,7 @@ import { Label, Textarea } from '@/components/ui/components'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/forms'
 import { DataTable } from '@/components/ui/data-table'
-import { formatDate, getStatusBadgeClass, generateFGId, downloadCSV, cn } from '@/lib/utils'
+import { formatDate, getStatusBadgeClass, generateFGId, downloadCSV, cn, openSignedFile } from '@/lib/utils'
 
 interface Client { id: string; client_name: string }
 interface Requirement {
@@ -100,12 +100,11 @@ export function RequirementsPage() {
     try {
       let jd_url = editing?.jd_url ?? null
       if (jdFile) {
-        const path = `jd-files/${Date.now()}_${jdFile.name}`
-        const { error } = await supabase.storage.from('jd-files').upload(path, jdFile)
-        if (!error) {
-          const { data } = supabase.storage.from('jd-files').getPublicUrl(path)
-          jd_url = data.publicUrl
-        }
+        const path = `${editing?.id ?? 'new'}/${Date.now()}_${jdFile.name}`
+        const { error } = await supabase.storage.from('jd-files').upload(path, jdFile, { upsert: true })
+        // Bucket is private — store the storage path; a fresh signed URL is
+        // generated on demand whenever the JD is opened (see openSignedFile).
+        if (!error) jd_url = path
       }
 
       const payload = {
@@ -207,8 +206,14 @@ export function RequirementsPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
           {row.original.jd_url && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-              <a href={row.original.jd_url} target="_blank" rel="noopener noreferrer"><Eye className="h-3.5 w-3.5" /></a>
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7" title="View JD" aria-label="View JD"
+              onClick={async () => {
+                const { error } = await openSignedFile('jd-files', row.original.jd_url!)
+                if (error) toast({ title: 'Could not open JD', variant: 'destructive' })
+              }}
+            >
+              <Eye className="h-3.5 w-3.5" />
             </Button>
           )}
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(row.original)}>
@@ -344,7 +349,17 @@ export function RequirementsPage() {
               <Input type="file" accept=".pdf,.docx,.doc" onChange={e => setJdFile(e.target.files?.[0] ?? null)} />
               {editing?.jd_url && !jdFile && (
                 <p className="text-xs text-muted-foreground">
-                  Current JD: <a href={editing.jd_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View</a>
+                  Current JD:{' '}
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={async () => {
+                      const { error } = await openSignedFile('jd-files', editing.jd_url!)
+                      if (error) toast({ title: 'Could not open JD', variant: 'destructive' })
+                    }}
+                  >
+                    View
+                  </button>
                 </p>
               )}
             </div>

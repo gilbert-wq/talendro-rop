@@ -75,17 +75,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (!error && data.user) {
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        email,
-        full_name: fullName,
-        role: 'recruiter',
-        status: 'pending',
-        phone: null,
-      })
-    }
+    // The handle_new_user() DB trigger (supabase/migrations/001_complete_schema.sql)
+    // automatically creates the profiles row whenever a new auth.users row is
+    // inserted, reading full_name/role from raw_user_meta_data. Previously this
+    // function ALSO manually inserted a profiles row with the same id, which
+    // always violated the primary key constraint (the trigger had already run)
+    // and surfaced a confusing DB error to every single user who signed up,
+    // even though their account was actually created successfully. Passing
+    // full_name through options.data lets the trigger pick it up instead.
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    })
     return { error }
   }
 

@@ -5,6 +5,17 @@ import { Button } from '@/components/ui/button'
 interface Props { children: React.ReactNode; fallback?: React.ReactNode }
 interface State { hasError: boolean; error: Error | null }
 
+// Pluggable error-reporting sink. Previously componentDidCatch only did
+// console.error, so a production crash was invisible unless a user
+// happened to report it. This keeps the app dependency-free (no Sentry SDK
+// added speculatively) while giving ops a single place to wire one in:
+//   import * as Sentry from '@sentry/react'
+//   reportError = (error, info) => Sentry.captureException(error, { extra: info })
+export let reportError: (error: Error, info: React.ErrorInfo) => void = () => {}
+export function setErrorReporter(fn: (error: Error, info: React.ErrorInfo) => void) {
+  reportError = fn
+}
+
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
@@ -17,6 +28,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[ErrorBoundary]', error, info)
+    try { reportError(error, info) } catch { /* never let the reporter itself crash the app */ }
   }
 
   render() {

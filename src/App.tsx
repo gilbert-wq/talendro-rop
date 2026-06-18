@@ -10,6 +10,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './components/auth/LoginPage'
 import { SignupPage } from './components/auth/SignupPage'
 import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './components/auth/ResetPasswordPage'
 import { PendingApproval } from './components/auth/PendingApproval'
 import { DashboardPage } from './components/dashboard/DashboardPage'
 import { ClientsPage } from './components/clients/ClientsPage'
@@ -81,6 +82,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <SignupPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
@@ -100,9 +102,13 @@ function AppRoutes() {
         <Route path="targets" element={<RequireAdmin><ErrorBoundary><TargetsPage /></ErrorBoundary></RequireAdmin>} />
         <Route path="activity" element={<RequireAdmin><ErrorBoundary><ActivityPage /></ErrorBoundary></RequireAdmin>} />
         <Route path="users" element={<RequireAdmin><ErrorBoundary><UsersPage /></ErrorBoundary></RequireAdmin>} />
+        {/* Catches any unmatched path for authenticated users; RequireAuth above
+            already redirects unauthenticated visitors to /login before this is
+            ever reached, so a separate top-level "*" route is unreachable and
+            was removed (every real URL starts with "/", so this nested branch
+            always wins the route-ranking match first). */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }

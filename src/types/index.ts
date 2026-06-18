@@ -226,6 +226,7 @@ export interface Submission {
   submission_date: string
   requirement_id: string
   candidate_id: string
+  vendor_id: string | null
   partner_name: string | null
   status: SubmissionStatus
   notes: string | null
@@ -236,6 +237,7 @@ export interface Submission {
   candidates?: CandidateSubmissionView | null
   requirements?: RequirementSubmissionView | null
   profiles?: Pick<Profile, 'full_name'> | null
+  vendors?: Pick<Vendor, 'vendor_name'> | null
 }
 
 export interface CandidateSubmissionView {
@@ -269,6 +271,7 @@ export interface SubmissionFormData {
   submission_date: string
   requirement_id: string
   candidate_id: string
+  vendor_id: string
   partner_name: string
   status: SubmissionStatus
   notes: string
