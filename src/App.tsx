@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ui/error-boundary'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './components/auth/LoginPage'
 import { SignupPage } from './components/auth/SignupPage'
+import { ProfileCompletionModal } from './components/auth/ProfileCompletionModal'
 import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage'
 import { PendingApproval } from './components/auth/PendingApproval'
@@ -61,6 +62,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     )
+  }
+  // FEATURE 2: mandatory profile completion. children (the entire routed
+  // app shell, including all navigation) is never rendered while this is
+  // true — there is no route or nav action that bypasses it.
+  if (profile?.status === 'approved' && profile.profile_completed === false) {
+    return <ProfileCompletionModal />
   }
   return <>{children}</>
 }

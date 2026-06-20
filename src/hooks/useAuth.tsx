@@ -1,15 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-
-interface Profile {
-  id: string
-  email: string
-  full_name: string
-  role: 'admin' | 'recruiter'
-  status: 'pending' | 'approved' | 'rejected' | 'inactive'
-  phone: string | null
-}
+import type { Profile } from '@/types'
+import { useLoginSessionTracking } from './useLoginSessionTracking'
+import { logActivity } from '@/lib/activityLogger'
 
 interface AuthContextType {
   user: User | null
@@ -69,8 +63,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // FEATURE 3/4: creates/resumes a user_login_sessions row, heartbeats it,
+  // and best-effort closes it on logout/browser-close. See
+  // useLoginSessionTracking.ts for the full lifecycle.
+  useLoginSessionTracking(user?.id ?? null)
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (!error) {
+      // Fire-and-forget: logActivity looks up the caller's own profile via
+      // auth.getUser(), so this is safe to call right after sign-in even
+      // before local React state has caught up.
+      logActivity({ module: 'Auth', action: 'Logged in', activityType: 'login' })
+    }
     return { error }
   }
 
@@ -92,6 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
+    // Must log before signOut() invalidates the session — logActivity
+    // attributes the entry via the current session and would silently
+    // no-op once there's no user to attribute it to.
+    await logActivity({ module: 'Auth', action: 'Logged out', activityType: 'logout' })
     await supabase.auth.signOut()
     setProfile(null)
   }

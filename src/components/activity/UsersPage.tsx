@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast'
 import { logActivity } from '@/lib/activityLogger'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
+import { RecruiterProfileCard } from '@/components/users/RecruiterProfileCard'
 import { formatDateTime, getStatusBadgeClass, cn } from '@/lib/utils'
 
 interface Profile {
@@ -22,6 +23,7 @@ export function UsersPage() {
   const { toast } = useToast()
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
+  const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null)
 
   useEffect(() => { fetchUsers() }, [])
 
@@ -34,7 +36,10 @@ export function UsersPage() {
 
   const updateStatus = async (user: Profile, status: string) => {
     await supabase.from('profiles').update({ status }).eq('id', user.id)
-    await logActivity({ module: 'Users', action: `${status} recruiter`, details: user.full_name, recordId: user.id })
+    await logActivity({
+      module: 'Users', action: `${status} recruiter`, details: user.full_name, recordId: user.id,
+      activityType: status === 'approved' ? 'user_approved' : status === 'rejected' ? 'user_rejected' : undefined,
+    })
     toast({ title: `User ${status}`, variant: 'success' })
     fetchUsers()
   }
@@ -63,12 +68,16 @@ export function UsersPage() {
     {
       accessorKey: 'full_name', header: 'Name',
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setProfileCardUserId(row.original.id)}
+          className="flex items-center gap-2 hover:underline text-left"
+        >
           <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
             {row.original.full_name?.charAt(0)?.toUpperCase()}
           </div>
           <span className="font-medium">{row.original.full_name}</span>
-        </div>
+        </button>
       ),
     },
     { accessorKey: 'email', header: 'Email', cell: ({ row }) => <span className="text-xs">{row.original.email}</span> },
@@ -153,6 +162,12 @@ export function UsersPage() {
       </div>
 
       <DataTable data={users} columns={columns} searchPlaceholder="Search users…" />
+
+      <RecruiterProfileCard
+        userId={profileCardUserId}
+        open={!!profileCardUserId}
+        onOpenChange={(open) => { if (!open) setProfileCardUserId(null) }}
+      />
     </div>
   )
 }

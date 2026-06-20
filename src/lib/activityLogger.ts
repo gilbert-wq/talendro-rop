@@ -5,6 +5,11 @@ export async function logActivity(params: {
   action: string
   details?: string
   recordId?: string
+  /** Categorized slug for activity_logs.activity_type (Feature 7). If
+   * omitted, derived automatically from `action` (e.g. "Created submission"
+   * -> "created_submission") so every pre-existing call site populates this
+   * column for free without needing to be touched individually. */
+  activityType?: string
 }) {
   try {
     const { data: { user } } = await supabase.auth.getUser()
@@ -16,6 +21,8 @@ export async function logActivity(params: {
       .eq('id', user.id)
       .single()
 
+    const activityType = params.activityType ?? params.action.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+
     await supabase.from('activity_logs').insert({
       user_id: user.id,
       user_name: profile?.full_name ?? user.email ?? 'Unknown',
@@ -24,8 +31,10 @@ export async function logActivity(params: {
       action: params.action,
       details: params.details ?? null,
       record_id: params.recordId ?? null,
+      activity_type: activityType,
     })
   } catch (e) {
     console.error('Failed to log activity:', e)
   }
 }
+

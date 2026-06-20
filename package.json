@@ -36,6 +36,8 @@
     "clsx": "^2.1.0",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.368.0",
     "papaparse": "^5.5.3",
     "react": "^18.2.0",
@@ -47,6 +49,7 @@
     "recharts": "^2.12.3",
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",
+    "ua-parser-js": "^2.0.10",
     "xlsx": "^0.18.5",
     "zod": "^3.22.4"
   },

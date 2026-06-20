@@ -7,10 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/forms'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/components'
 import { downloadCSV, formatDate } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { UserAttendanceReport } from './UserAttendanceReport'
 
 const COLORS = ['#1e3a8a', '#22d3ee', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 export function ReportsPage() {
+  const { isAdmin } = useAuth()
   const [period, setPeriod] = useState('30')
   const [submissionData, setSubmissionData] = useState<any[]>([])
   const [recruiterData, setRecruiterData] = useState<any[]>([])
@@ -136,6 +139,7 @@ export function ReportsPage() {
           <TabsTrigger value="client">Client Analytics</TabsTrigger>
           <TabsTrigger value="vendor">Vendor Performance</TabsTrigger>
           <TabsTrigger value="funnel">Candidate Funnel</TabsTrigger>
+          {isAdmin && <TabsTrigger value="attendance">User Attendance</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -280,6 +284,12 @@ export function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="attendance">
+            <UserAttendanceReport />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

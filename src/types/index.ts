@@ -29,8 +29,138 @@ export interface Profile {
   status: UserStatus
   phone: string | null
   avatar_url: string | null
+  employee_id: string | null
+  alternate_phone: string | null
+  date_of_joining: string | null
+  department: string | null
+  designation: string | null
+  reporting_manager: string | null
+  date_of_birth: string | null
+  gender: 'male' | 'female' | 'other' | 'prefer_not_to_say' | null
+  current_address: string | null
+  permanent_address: string | null
+  emergency_contact_name: string | null
+  emergency_contact_number: string | null
+  education: string | null
+  experience_years: number | null
+  profile_completion_percentage: number
+  profile_completed: boolean
+  last_login_at: string | null
   created_at: string
   updated_at: string
+}
+
+// ============================================================
+// USER MANAGEMENT / LOGIN TRACKING / ATTENDANCE / ANALYTICS
+// ============================================================
+
+export interface LoginSession {
+  id: string
+  user_id: string
+  login_time: string
+  logout_time: string | null
+  session_duration_minutes: number | null
+  ip_address: string | null
+  device_type: 'desktop' | 'mobile' | 'tablet' | 'unknown' | null
+  browser_name: string | null
+  operating_system: string | null
+  location: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OnlineUser {
+  user_id: string
+  full_name: string
+  role: UserRole
+  login_time: string
+  online_minutes: number
+}
+
+export interface RecruiterProfileSummary {
+  id: string
+  full_name: string
+  employee_id: string | null
+  email: string
+  phone: string | null
+  alternate_phone: string | null
+  department: string | null
+  designation: string | null
+  reporting_manager_name: string | null
+  date_of_joining: string | null
+  date_of_birth: string | null
+  gender: string | null
+  current_address: string | null
+  permanent_address: string | null
+  emergency_contact_name: string | null
+  emergency_contact_number: string | null
+  education: string | null
+  experience_years: number | null
+  avatar_url: string | null
+  status: UserStatus
+  last_login_at: string | null
+  created_at: string
+  profile_completion_percentage: number
+}
+
+export interface RecruiterPerformance {
+  candidates_added: number
+  candidates_joined: number
+  submissions_made: number
+  interviews_scheduled: number
+  interviews_cleared: number
+  offers_released: number
+  offers_accepted: number
+  offer_conversion_rate: number
+  joining_conversion_rate: number
+}
+
+export interface RecruiterWorkload {
+  active_requirements: number
+  active_candidates: number
+  open_interviews: number
+  pending_offers: number
+  pending_followups: number
+  pending_actions: number
+}
+
+export interface AttendanceRecord {
+  user_id: string
+  full_name: string
+  employee_id: string | null
+  role: UserRole
+  department: string | null
+  attendance_date: string
+  first_login: string | null
+  last_logout: string | null
+  total_duration_minutes: number
+  status: 'online' | 'offline'
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  user_id: string
+  full_name: string
+  score: number
+  candidates_added: number
+  submissions_made: number
+  interviews_cleared: number
+  offers_accepted: number
+  joins: number
+  is_top_performer: boolean
+}
+
+export interface LiveActivityItem {
+  id: string
+  user_id: string
+  user_name: string
+  role: UserRole
+  module_name: string
+  activity_type: string
+  activity_description: string | null
+  reference_id: string | null
+  created_at: string
 }
 
 // ============================================================

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { LiveClock } from '@/components/common/LiveClock'
 
 const routeTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -75,7 +76,8 @@ export function Header({ sidebarCollapsed, darkMode, onToggleDark }: HeaderProps
         <h1 className="text-base font-semibold text-foreground">{title}</h1>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        <LiveClock />
         <Button variant="ghost" size="icon" onClick={onToggleDark} title={darkMode ? 'Light mode' : 'Dark mode'}>
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>

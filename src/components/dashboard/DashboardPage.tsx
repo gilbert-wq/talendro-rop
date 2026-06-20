@@ -5,6 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/components'
 import { formatDateTime, cn } from '@/lib/utils'
+import { OnlineUsersWidget } from './OnlineUsersWidget'
+import { RecruiterLeaderboard } from './RecruiterLeaderboard'
+import { LiveActivityFeed } from './LiveActivityFeed'
 
 interface Stats {
   requirements: number
@@ -28,7 +31,6 @@ export function DashboardPage() {
     recruiters: 0, candidates: 0, submissions: 0,
     interviews: 0, offers: 0, joinings: 0, clients: 0,
   })
-  const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [submissionsByMonth, setSubmissionsByMonth] = useState<any[]>([])
   const [statusData, setStatusData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,14 +82,6 @@ export function DashboardPage() {
         statusMap[s.status] = (statusMap[s.status] ?? 0) + 1
       })
       setStatusData(Object.entries(statusMap).map(([name, value]) => ({ name, value })))
-
-      // Recent activity
-      const { data: activity } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(8)
-      setRecentActivity(activity ?? [])
     } finally {
       setLoading(false)
     }
@@ -197,38 +191,19 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" /> Recent Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentActivity.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No activity logged yet</p>
-          ) : (
-            <div className="space-y-3">
-              {recentActivity.map(log => (
-                <div key={log.id} className="flex items-start gap-3">
-                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
-                    {log.user_name?.charAt(0)?.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium">
-                      <span className="text-primary">{log.user_name}</span>{' '}
-                      <span className="text-muted-foreground">{log.action}</span>{' '}
-                      {log.details && <span className="font-semibold">{log.details}</span>}
-                    </p>
-                    <p className="text-xs text-muted-foreground/70 mt-0.5">{formatDateTime(log.created_at)}</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md flex-shrink-0">{log.module}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* FEATURE 4/7/8: live online users + leaderboard are admin-only
+          additions; the live activity feed replaces the old static,
+          one-time-fetch "Recent Activity" card in the same slot — it's a
+          strict upgrade (realtime updates, and RLS already scopes a
+          recruiter to their own activity vs an admin seeing everyone's, so
+          no separate recruiter-only layout is needed here). */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <OnlineUsersWidget />
+          <RecruiterLeaderboard />
+        </div>
+      )}
+      <LiveActivityFeed />
     </div>
   )
 }
