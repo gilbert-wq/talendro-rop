@@ -867,6 +867,39 @@ CREATE POLICY "company_assets_insert" ON storage.objects
     AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
 
+-- AVATARS bucket (public read; any approved user may write ONLY to their
+-- own folder — profile photos are not sensitive PII the way resumes/ID
+-- documents are, so a public bucket is appropriate, but uploads still must
+-- not let one user overwrite another's avatar). Kept separate from
+-- company-assets, whose insert policy is intentionally admin-only for
+-- branding assets and must not be loosened to make avatar uploads work.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('avatars', 'avatars', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
+
+DROP POLICY IF EXISTS "avatars_select" ON storage.objects;
+CREATE POLICY "avatars_select" ON storage.objects
+  FOR SELECT USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "avatars_insert" ON storage.objects;
+CREATE POLICY "avatars_insert" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'avatars' AND is_approved_user()
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "avatars_update" ON storage.objects;
+CREATE POLICY "avatars_update" ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "avatars_delete" ON storage.objects;
+CREATE POLICY "avatars_delete" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'avatars' AND ((storage.foldername(name))[1] = auth.uid()::text OR is_admin())
+  );
+
 -- ============================================================
 -- SEED FIRST ADMIN USER
 -- NOTE: After running this migration, create your first user via

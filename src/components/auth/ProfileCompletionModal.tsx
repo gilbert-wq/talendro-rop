@@ -81,14 +81,15 @@ export function ProfileCompletionModal() {
     try {
       let avatar_url = profile.avatar_url
       if (photoFile) {
-        // company-assets is the one PUBLIC bucket (branding/avatars are not
-        // sensitive PII the way resumes/ID documents are), so a plain
-        // public URL is appropriate here, unlike the candidate document
-        // buckets which use signed URLs.
-        const path = `avatars/${profile.id}/${Date.now()}_${photoFile.name}`
-        const { error: uploadError } = await supabase.storage.from('company-assets').upload(path, photoFile, { upsert: true })
+        // 'avatars' is a dedicated public bucket where any approved user
+        // may write to their own folder only (see migration 004 /
+        // 001_complete_schema.sql) — company-assets' insert policy is
+        // intentionally admin-only for branding assets and must not be
+        // used here.
+        const path = `${profile.id}/${Date.now()}_${photoFile.name}`
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(path, photoFile, { upsert: true })
         if (uploadError) throw uploadError
-        const { data } = supabase.storage.from('company-assets').getPublicUrl(path)
+        const { data } = supabase.storage.from('avatars').getPublicUrl(path)
         avatar_url = data.publicUrl
       }
 
