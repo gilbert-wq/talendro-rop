@@ -418,19 +418,35 @@ export const dashboardService = {
   },
 
   getRecruiterKPIs: async (since?: string): Promise<RecruiterKPI[]> => {
-    const query = supabase.from('submissions')
-      .select('submitted_by, status, profiles!submitted_by(full_name)')
-    if (since) query.gte('created_at', since)
-    const { data } = await query
+    // Seed every approved recruiter at zero FIRST, then increment from
+    // submissions. Building the map purely from submission rows (the
+    // previous approach) meant a recruiter with zero submissions never got
+    // an entry at all and silently vanished from the KPI list/cards.
+    const { data: recruiters } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('role', 'recruiter')
+      .eq('status', 'approved')
+
     const map: Record<string, RecruiterKPI> = {}
+    ;(recruiters ?? []).forEach((r: any) => {
+      map[r.id] = { user_id: r.id, full_name: r.full_name, submissions: 0, interviews: 0, offers: 0, joinings: 0, conversion_rate: 0 }
+    })
+
+    let query = supabase.from('submissions').select('submitted_by, status, profiles!submitted_by(full_name)')
+    if (since) query = query.gte('created_at', since)
+    const { data } = await query
     ;(data ?? []).forEach((s: any) => {
       const id = s.submitted_by
       if (!map[id]) {
+        // Submission from a user not in the approved-recruiters seed (e.g.
+        // an admin who also submits, or a recruiter who's since been
+        // deactivated) — still count it rather than dropping it silently.
         map[id] = { user_id: id, full_name: s.profiles?.full_name ?? 'Unknown', submissions: 0, interviews: 0, offers: 0, joinings: 0, conversion_rate: 0 }
       }
       map[id].submissions++
-      if (['l1_cleared','l2_cleared','final_round','offered','joined'].includes(s.status)) map[id].interviews++
-      if (['offered','joined'].includes(s.status)) map[id].offers++
+      if (['l1_cleared', 'l2_cleared', 'final_round', 'offered', 'joined'].includes(s.status)) map[id].interviews++
+      if (['offered', 'joined'].includes(s.status)) map[id].offers++
       if (s.status === 'joined') map[id].joinings++
     })
     return Object.values(map).map(kpi => ({

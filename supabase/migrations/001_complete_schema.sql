@@ -226,9 +226,10 @@ CREATE TABLE IF NOT EXISTS offers (
   requirement_id UUID NOT NULL REFERENCES requirements(id) ON DELETE CASCADE,
   offer_date DATE,
   offered_ctc BIGINT,
-  joining_date DATE,
+  joining_date DATE, -- tentative/planned joining date, set at offer time
+  joined_date DATE,  -- actual date the candidate joined, set when status -> 'joined'
   offer_letter_url TEXT,
-  status TEXT NOT NULL DEFAULT 'offered' CHECK (status IN ('offered','accepted','declined','joined','no_show','deferred')),
+  status TEXT NOT NULL DEFAULT 'offered' CHECK (status IN ('offered','accepted','declined','joined','no_show','deferred','backed_out','absconded')),
   notes TEXT,
   created_by UUID NOT NULL REFERENCES profiles(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -419,6 +420,36 @@ DROP TRIGGER IF EXISTS trg_submission_stage ON submissions;
 CREATE TRIGGER trg_submission_stage
 AFTER UPDATE ON submissions
 FOR EACH ROW EXECUTE FUNCTION log_submission_stage_change();
+
+-- Auto-create (or update) an offers row whenever a submission reaches
+-- 'offered' or 'joined', so moving a candidate to Offered on any Kanban
+-- board always shows up in Offers & Joinings without a separate manual
+-- step. SECURITY DEFINER is safe here: every inserted value comes directly
+-- from the NEW submissions row being updated, nothing caller-supplied.
+CREATE OR REPLACE FUNCTION auto_create_offer_on_status_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'offered' AND OLD.status IS DISTINCT FROM 'offered' THEN
+    INSERT INTO offers (submission_id, candidate_id, requirement_id, offer_date, status, created_by)
+    SELECT NEW.id, NEW.candidate_id, NEW.requirement_id, CURRENT_DATE, 'offered', NEW.submitted_by
+    WHERE NOT EXISTS (SELECT 1 FROM offers WHERE submission_id = NEW.id);
+  END IF;
+
+  IF NEW.status = 'joined' AND OLD.status IS DISTINCT FROM 'joined' THEN
+    UPDATE offers SET status = 'joined', joined_date = COALESCE(joined_date, CURRENT_DATE)
+    WHERE submission_id = NEW.id;
+    INSERT INTO offers (submission_id, candidate_id, requirement_id, offer_date, joined_date, status, created_by)
+    SELECT NEW.id, NEW.candidate_id, NEW.requirement_id, CURRENT_DATE, CURRENT_DATE, 'joined', NEW.submitted_by
+    WHERE NOT EXISTS (SELECT 1 FROM offers WHERE submission_id = NEW.id);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_auto_create_offer ON submissions;
+CREATE TRIGGER trg_auto_create_offer
+AFTER UPDATE OF status ON submissions
+FOR EACH ROW EXECUTE FUNCTION auto_create_offer_on_status_change();
 
 -- ============================================================
 -- AUTO-CREATE PROFILE ON SIGNUP TRIGGER
@@ -899,6 +930,53 @@ CREATE POLICY "avatars_delete" ON storage.objects
   FOR DELETE USING (
     bucket_id = 'avatars' AND ((storage.foldername(name))[1] = auth.uid()::text OR is_admin())
   );
+
+-- ============================================================
+-- COMPANY SOPs — admin-uploaded, approved-user-readable
+-- ============================================================
+CREATE TABLE IF NOT EXISTS company_sops (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  file_path TEXT NOT NULL,
+  file_size INTEGER,
+  uploaded_by UUID NOT NULL REFERENCES profiles(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_company_sops_created ON company_sops(created_at DESC);
+
+DROP TRIGGER IF EXISTS trg_company_sops_updated_at ON company_sops;
+CREATE TRIGGER trg_company_sops_updated_at
+BEFORE UPDATE ON company_sops
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE company_sops ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "company_sops_select" ON company_sops;
+CREATE POLICY "company_sops_select" ON company_sops FOR SELECT USING (is_approved_user());
+DROP POLICY IF EXISTS "company_sops_insert" ON company_sops;
+CREATE POLICY "company_sops_insert" ON company_sops FOR INSERT WITH CHECK (is_admin());
+DROP POLICY IF EXISTS "company_sops_update" ON company_sops;
+CREATE POLICY "company_sops_update" ON company_sops FOR UPDATE USING (is_admin());
+DROP POLICY IF EXISTS "company_sops_delete" ON company_sops;
+CREATE POLICY "company_sops_delete" ON company_sops FOR DELETE USING (is_admin());
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('company-sops', 'company-sops', false, 20971520,
+  ARRAY['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'])
+ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
+
+DROP POLICY IF EXISTS "company_sops_storage_select" ON storage.objects;
+CREATE POLICY "company_sops_storage_select" ON storage.objects
+  FOR SELECT USING (bucket_id = 'company-sops' AND is_approved_user());
+DROP POLICY IF EXISTS "company_sops_storage_insert" ON storage.objects;
+CREATE POLICY "company_sops_storage_insert" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'company-sops' AND is_admin());
+DROP POLICY IF EXISTS "company_sops_storage_delete" ON storage.objects;
+CREATE POLICY "company_sops_storage_delete" ON storage.objects
+  FOR DELETE USING (bucket_id = 'company-sops' AND is_admin());
 
 -- ============================================================
 -- SEED FIRST ADMIN USER

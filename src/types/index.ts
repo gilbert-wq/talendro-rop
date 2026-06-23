@@ -163,6 +163,17 @@ export interface LiveActivityItem {
   created_at: string
 }
 
+export interface CompanySOP {
+  id: string
+  title: string
+  description: string | null
+  file_path: string
+  file_size: number | null
+  uploaded_by: string
+  created_at: string
+  updated_at: string
+}
+
 // ============================================================
 // CLIENT
 // ============================================================

@@ -11,6 +11,7 @@ import { Label, Textarea } from '@/components/ui/components'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/forms'
 import { DataTable } from '@/components/ui/data-table'
+import { RequirementPipelineDialog } from './RequirementPipelineDialog'
 import { formatDate, getStatusBadgeClass, generateFGId, downloadCSV, cn, openSignedFile } from '@/lib/utils'
 
 interface Client { id: string; client_name: string }
@@ -49,6 +50,7 @@ export function RequirementsPage() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Requirement | null>(null)
+  const [pipelineReq, setPipelineReq] = useState<Requirement | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [jdFile, setJdFile] = useState<File | null>(null)
@@ -153,7 +155,16 @@ export function RequirementsPage() {
   const columns: ColumnDef<Requirement>[] = [
     {
       accessorKey: 'fg_id', header: 'FG ID',
-      cell: ({ row }) => <span className="mono text-xs font-semibold text-primary">{row.original.fg_id}</span>,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          onClick={() => setPipelineReq(row.original)}
+          className="mono text-xs font-semibold text-primary hover:underline"
+          title="View pipeline for this requirement"
+        >
+          {row.original.fg_id}
+        </button>
+      ),
     },
     {
       accessorKey: 'requirement_title', header: 'Position',
@@ -375,6 +386,14 @@ export function RequirementsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RequirementPipelineDialog
+        requirementId={pipelineReq?.id ?? null}
+        fgId={pipelineReq?.fg_id}
+        requirementTitle={pipelineReq?.requirement_title}
+        open={!!pipelineReq}
+        onOpenChange={(open) => { if (!open) setPipelineReq(null) }}
+      />
     </div>
   )
 }

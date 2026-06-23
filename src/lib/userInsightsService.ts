@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type {
   LoginSession, OnlineUser, RecruiterProfileSummary, RecruiterPerformance,
-  RecruiterWorkload, AttendanceRecord, LeaderboardEntry, LiveActivityItem,
+  RecruiterWorkload, AttendanceRecord, LeaderboardEntry, LiveActivityItem, CompanySOP,
 } from '@/types'
 
 // ─── RECRUITER PROFILE CARD ──────────────────────────────────────────────────
@@ -51,4 +51,29 @@ export const attendanceService = {
 export const liveActivityService = {
   getFeed: (limit = 50) =>
     supabase.rpc('get_live_activity_feed', { p_limit: limit }) as unknown as Promise<{ data: LiveActivityItem[] | null; error: Error | null }>,
+}
+
+// ─── COMPANY SOPs (admin upload, approved-user view via signed URL) ────────
+export const companySopService = {
+  getAll: () =>
+    supabase.from('company_sops').select('*').order('created_at', { ascending: false }) as unknown as Promise<{ data: CompanySOP[] | null; error: Error | null }>,
+
+  upload: async (file: File, title: string, description: string | null, uploadedBy: string) => {
+    const path = `${Date.now()}_${file.name}`
+    const { error: uploadError } = await supabase.storage.from('company-sops').upload(path, file)
+    if (uploadError) return { data: null, error: uploadError }
+    return supabase.from('company_sops').insert({
+      title, description, file_path: path, file_size: file.size, uploaded_by: uploadedBy,
+    }).select().single<CompanySOP>()
+  },
+
+  delete: async (sop: CompanySOP) => {
+    await supabase.storage.from('company-sops').remove([sop.file_path])
+    return supabase.from('company_sops').delete().eq('id', sop.id)
+  },
+
+  getSignedUrl: async (path: string, expiresIn = 3600) => {
+    const { data, error } = await supabase.storage.from('company-sops').createSignedUrl(path, expiresIn)
+    return { url: data?.signedUrl ?? null, error }
+  },
 }

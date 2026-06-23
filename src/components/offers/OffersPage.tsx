@@ -22,6 +22,7 @@ interface Offer {
   offer_date: string | null
   offered_ctc: number | null
   joining_date: string | null
+  joined_date: string | null
   status: string
   notes: string | null
   created_at: string
@@ -35,11 +36,38 @@ const OFFER_STATUSES = [
   { value: 'declined', label: 'Declined' },
   { value: 'joined', label: 'Joined' },
   { value: 'no_show', label: 'No Show' },
+  { value: 'deferred', label: 'Deferred' },
+  { value: 'backed_out', label: 'Backed Out' },
+  { value: 'absconded', label: 'Absconded' },
 ]
+
+// Statuses that represent the offer is still "live" — i.e. the candidate
+// hasn't joined yet but also hasn't been marked as a lost cause. Used to
+// compute the aging/at-risk buckets below.
+const PENDING_STATUSES = ['offered', 'accepted', 'deferred']
+
+/** Days between the tentative joining_date and today, for offers still
+ * pending. Negative/null means not yet due or already resolved. */
+function daysOverdue(offer: Offer): number | null {
+  if (!PENDING_STATUSES.includes(offer.status) || !offer.joining_date) return null
+  const due = new Date(offer.joining_date)
+  const today = new Date()
+  due.setHours(0, 0, 0, 0); today.setHours(0, 0, 0, 0)
+  const diff = Math.round((today.getTime() - due.getTime()) / 86_400_000)
+  return diff > 0 ? diff : null
+}
+
+function agingBucket(days: number): '15' | '30' | '45' | '90' | null {
+  if (days >= 90) return '90'
+  if (days >= 45) return '45'
+  if (days >= 30) return '30'
+  if (days >= 15) return '15'
+  return null
+}
 
 const emptyForm = {
   submission_id: '', candidate_id: '', requirement_id: '',
-  offer_date: '', offered_ctc: '', joining_date: '', status: 'offered', notes: '',
+  offer_date: '', offered_ctc: '', joining_date: '', joined_date: '', status: 'offered', notes: '',
 }
 
 export function OffersPage() {
@@ -75,7 +103,7 @@ export function OffersPage() {
       submission_id: o.submission_id, candidate_id: o.candidate_id,
       requirement_id: o.requirement_id,
       offer_date: o.offer_date ?? '', offered_ctc: o.offered_ctc?.toString() ?? '',
-      joining_date: o.joining_date ?? '', status: o.status, notes: o.notes ?? '',
+      joining_date: o.joining_date ?? '', joined_date: o.joined_date ?? '', status: o.status, notes: o.notes ?? '',
     })
     setOpen(true)
   }
@@ -90,20 +118,30 @@ export function OffersPage() {
         offer_date: form.offer_date || null,
         offered_ctc: form.offered_ctc ? Number(form.offered_ctc) : null,
         joining_date: form.joining_date || null,
+        // If marking as joined and no actual joined_date was entered,
+        // default it to today rather than leaving it null.
+        joined_date: form.status === 'joined' ? (form.joined_date || new Date().toISOString().split('T')[0]) : (form.joined_date || null),
         status: form.status,
         notes: form.notes || null,
       }
       if (editing) {
         await supabase.from('offers').update(payload).eq('id', editing.id)
-        // Sync submission status
+        // Sync submission status so the Kanban/Submissions views stay
+        // consistent with the outcome recorded here.
         if (form.status === 'offered') await supabase.from('submissions').update({ status: 'offered' }).eq('id', form.submission_id)
-        if (form.status === 'joined') await supabase.from('submissions').update({ status: 'joined' }).eq('id', form.submission_id)
-        await logActivity({ module: 'Offers', action: 'Updated offer', details: form.status, recordId: editing.id })
+        else if (form.status === 'joined') await supabase.from('submissions').update({ status: 'joined' }).eq('id', form.submission_id)
+        else if (['declined', 'no_show', 'backed_out', 'absconded'].includes(form.status)) {
+          await supabase.from('submissions').update({ status: 'rejected' }).eq('id', form.submission_id)
+        }
+        await logActivity({
+          module: 'Offers', action: 'Updated offer', details: form.status, recordId: editing.id,
+          activityType: form.status === 'joined' ? 'candidate_joined' : 'offer_updated',
+        })
         toast({ title: 'Offer updated', variant: 'success' })
       } else {
         await supabase.from('offers').insert({ ...payload, created_by: user!.id })
         await supabase.from('submissions').update({ status: 'offered' }).eq('id', form.submission_id)
-        await logActivity({ module: 'Offers', action: 'Created offer', details: formatCTC(Number(form.offered_ctc)) })
+        await logActivity({ module: 'Offers', action: 'Created offer', details: formatCTC(Number(form.offered_ctc)), activityType: 'offer_released' })
         toast({ title: 'Offer created', variant: 'success' })
       }
       setOpen(false)
@@ -128,7 +166,19 @@ export function OffersPage() {
       cell: ({ row }) => <span className="text-xs">{row.original.requirements?.requirement_title}</span>,
     },
     { accessorKey: 'offered_ctc', header: 'Offered CTC', cell: ({ row }) => formatCTC(row.original.offered_ctc) },
-    { accessorKey: 'joining_date', header: 'Joining Date', cell: ({ row }) => formatDate(row.original.joining_date) },
+    { accessorKey: 'joining_date', header: 'Tentative Joining', cell: ({ row }) => formatDate(row.original.joining_date) },
+    { accessorKey: 'joined_date', header: 'Actual Joined', cell: ({ row }) => row.original.joined_date ? formatDate(row.original.joined_date) : '—' },
+    {
+      id: 'aging', header: 'Joining Status',
+      cell: ({ row }) => {
+        const days = daysOverdue(row.original)
+        if (row.original.status === 'joined') return <span className="text-emerald-600 text-xs font-medium">✓ Joined</span>
+        if (days == null) return <span className="text-xs text-muted-foreground">On track</span>
+        const bucket = agingBucket(days)
+        const color = bucket === '90' ? 'text-red-700 bg-red-100' : bucket === '45' ? 'text-red-600 bg-red-50' : bucket === '30' ? 'text-amber-700 bg-amber-100' : 'text-amber-600 bg-amber-50'
+        return <span className={cn("text-xs font-semibold rounded-full px-2 py-0.5", color)}>{days}d overdue</span>
+      },
+    },
     {
       accessorKey: 'status', header: 'Status',
       cell: ({ row }) => (
@@ -149,6 +199,14 @@ export function OffersPage() {
 
   const joinings = offers.filter(o => o.status === 'joined')
   const pending = offers.filter(o => o.status !== 'joined')
+  const atRisk = offers.filter(o => daysOverdue(o) != null)
+  const bucketCounts = { '15': 0, '30': 0, '45': 0, '90': 0 } as Record<'15' | '30' | '45' | '90', number>
+  atRisk.forEach(o => {
+    const days = daysOverdue(o)
+    if (days == null) return
+    const b = agingBucket(days)
+    if (b) bucketCounts[b]++
+  })
 
   return (
     <div className="space-y-4">
@@ -167,10 +225,32 @@ export function OffersPage() {
         </div>
       </div>
 
+      {atRisk.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-3">
+            <p className="text-lg font-bold text-amber-700">{bucketCounts['15']}</p>
+            <p className="text-[11px] text-muted-foreground">15+ days overdue</p>
+          </div>
+          <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-3">
+            <p className="text-lg font-bold text-amber-700">{bucketCounts['30']}</p>
+            <p className="text-[11px] text-muted-foreground">30+ days overdue</p>
+          </div>
+          <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-3">
+            <p className="text-lg font-bold text-red-600">{bucketCounts['45']}</p>
+            <p className="text-[11px] text-muted-foreground">45+ days overdue</p>
+          </div>
+          <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-3">
+            <p className="text-lg font-bold text-red-700">{bucketCounts['90']}</p>
+            <p className="text-[11px] text-muted-foreground">90+ days overdue</p>
+          </div>
+        </div>
+      )}
+
       <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">All Offers ({offers.length})</TabsTrigger>
           <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
+          <TabsTrigger value="atrisk">At Risk ({atRisk.length})</TabsTrigger>
           <TabsTrigger value="joined">Joined ({joinings.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="all">
@@ -178,6 +258,12 @@ export function OffersPage() {
         </TabsContent>
         <TabsContent value="pending">
           <DataTable data={pending} columns={offerColumns} searchPlaceholder="Search…" />
+        </TabsContent>
+        <TabsContent value="atrisk">
+          <p className="text-xs text-muted-foreground mb-2">
+            Offers past their tentative joining date with no confirmed join — use this to follow up on candidates who may have backed out or gone silent.
+          </p>
+          <DataTable data={atRisk} columns={offerColumns} searchPlaceholder="Search…" />
         </TabsContent>
         <TabsContent value="joined">
           <DataTable data={joinings} columns={offerColumns} searchPlaceholder="Search joined…" />
@@ -215,18 +301,22 @@ export function OffersPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Joining Date</Label>
+                <Label>Tentative Joining Date</Label>
                 <Input type="date" value={form.joining_date} onChange={e => setForm(f => ({ ...f, joining_date: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {OFFER_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label>Actual Joined Date</Label>
+                <Input type="date" value={form.joined_date} onChange={e => setForm(f => ({ ...f, joined_date: e.target.value }))} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {OFFER_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Notes</Label>

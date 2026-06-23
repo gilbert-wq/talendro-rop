@@ -67,16 +67,24 @@ export function SubmissionsPage() {
   useEffect(() => { fetchAll() }, [])
 
   const fetchAll = async () => {
-    const [{ data: subs }, { data: reqs }, { data: cands }, { data: vends }] = await Promise.all([
+    const [subsRes, reqsRes, candsRes, vendsRes] = await Promise.all([
       supabase.from('submissions').select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), vendors(vendor_name)').order('submission_date', { ascending: false }),
       supabase.from('requirements').select('id, fg_id, requirement_title').eq('status', 'open'),
       supabase.from('candidates').select('id, candidate_name, mobile_number'),
       supabase.from('vendors').select('id, vendor_name').eq('status', 'active').order('vendor_name'),
     ])
-    setItems(subs ?? [])
-    setRequirements(reqs ?? [])
-    setCandidates(cands ?? [])
-    setVendors(vends ?? [])
+    if (subsRes.error) {
+      // Previously this failed silently (setItems(subs ?? [])), so a broken
+      // query — e.g. the vendors(vendor_name) embed not resolving because
+      // PostgREST's schema cache hadn't picked up the vendor_id FK yet —
+      // just showed "No records found" with no indication anything was
+      // actually wrong.
+      toast({ title: 'Could not load submissions', description: subsRes.error.message, variant: 'destructive' })
+    }
+    setItems(subsRes.data ?? [])
+    setRequirements(reqsRes.data ?? [])
+    setCandidates(candsRes.data ?? [])
+    setVendors(vendsRes.data ?? [])
   }
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setOpen(true) }
