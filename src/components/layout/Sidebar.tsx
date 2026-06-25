@@ -1,8 +1,8 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Building2, Truck, FileText, UserCheck,
-  Send, KanbanSquare, Calendar, Gift, BarChart3, Activity,
+  LayoutDashboard, Users, Building2, Truck, FileText,
+  Send, Gift, BarChart3, Activity,
   Bell, Upload, Settings, ChevronLeft, ChevronRight, LogOut,
   Shield, Target, UsersRound
 } from 'lucide-react'
@@ -28,10 +28,7 @@ function useNavItems() {
     { label: 'Clients', icon: Building2, href: '/clients' },
     { label: 'Vendors', icon: Truck, href: '/vendors' },
     { label: 'Requirements', icon: FileText, href: '/requirements' },
-    { label: 'Candidates', icon: UserCheck, href: '/candidates' },
     { label: 'Submissions', icon: Send, href: '/submissions' },
-    { label: 'Kanban', icon: KanbanSquare, href: '/kanban' },
-    { label: 'Interviews', icon: Calendar, href: '/interviews' },
     { label: 'Offers & Joinings', icon: Gift, href: '/offers' },
     { label: 'Reports', icon: BarChart3, href: '/reports' },
     { label: 'Bulk Upload', icon: Upload, href: '/bulk-upload' },

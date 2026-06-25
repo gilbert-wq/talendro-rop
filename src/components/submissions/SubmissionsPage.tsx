@@ -66,21 +66,38 @@ export function SubmissionsPage() {
 
   useEffect(() => { fetchAll() }, [])
 
+  const SUBMISSIONS_SELECT_WITH_VENDOR = '*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), vendors(vendor_name)'
+  const SUBMISSIONS_SELECT_NO_VENDOR = '*, candidates(*), requirements(fg_id, requirement_title, clients(client_name))'
+
   const fetchAll = async () => {
-    const [subsRes, reqsRes, candsRes, vendsRes] = await Promise.all([
-      supabase.from('submissions').select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), vendors(vendor_name)').order('submission_date', { ascending: false }),
+    let subsRes = await supabase.from('submissions').select(SUBMISSIONS_SELECT_WITH_VENDOR).order('submission_date', { ascending: false })
+
+    if (subsRes.error) {
+      // This most commonly means PostgREST's schema cache hasn't picked up
+      // the submissions.vendor_id -> vendors.id foreign key yet (a known
+      // Supabase gotcha after running a migration via the SQL editor — it
+      // usually needs `NOTIFY pgrst, 'reload schema';` or a brief wait).
+      // Rather than showing "No records found" with no explanation
+      // (the previous behavior), retry without the vendors embed so real
+      // data still loads, and surface a specific, actionable warning.
+      const fallback = await supabase.from('submissions').select(SUBMISSIONS_SELECT_NO_VENDOR).order('submission_date', { ascending: false })
+      if (fallback.error) {
+        toast({ title: 'Could not load submissions', description: fallback.error.message, variant: 'destructive' })
+      } else {
+        toast({
+          title: 'Vendor names temporarily unavailable',
+          description: "Run NOTIFY pgrst, 'reload schema'; in the Supabase SQL editor to fix this.",
+          variant: 'destructive',
+        })
+      }
+      subsRes = fallback
+    }
+
+    const [reqsRes, candsRes, vendsRes] = await Promise.all([
       supabase.from('requirements').select('id, fg_id, requirement_title').eq('status', 'open'),
       supabase.from('candidates').select('id, candidate_name, mobile_number'),
       supabase.from('vendors').select('id, vendor_name').eq('status', 'active').order('vendor_name'),
     ])
-    if (subsRes.error) {
-      // Previously this failed silently (setItems(subs ?? [])), so a broken
-      // query — e.g. the vendors(vendor_name) embed not resolving because
-      // PostgREST's schema cache hadn't picked up the vendor_id FK yet —
-      // just showed "No records found" with no indication anything was
-      // actually wrong.
-      toast({ title: 'Could not load submissions', description: subsRes.error.message, variant: 'destructive' })
-    }
     setItems(subsRes.data ?? [])
     setRequirements(reqsRes.data ?? [])
     setCandidates(candsRes.data ?? [])

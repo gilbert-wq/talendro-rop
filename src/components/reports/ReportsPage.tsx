@@ -33,14 +33,26 @@ export function ReportsPage() {
     const since = new Date()
     since.setDate(since.getDate() - Number(period))
 
-    const [{ data: subs }, { data: cands }, { data: reqs }, { data: profiles }] = await Promise.all([
-      supabase.from('submissions').select('*, candidates(candidate_name), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name), vendors(vendor_name)').gte('created_at', since.toISOString()),
+    let subsRes = await supabase.from('submissions')
+      .select('*, candidates(candidate_name), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name), vendors(vendor_name)')
+      .gte('created_at', since.toISOString())
+    if (subsRes.error) {
+      // Same stale-schema-cache fallback as SubmissionsPage — this single
+      // query feeds nearly every chart on this page, so letting it fail
+      // silently (the previous behavior) zeroed out the entire Reports
+      // page, not just the vendor breakdown.
+      subsRes = await supabase.from('submissions')
+        .select('*, candidates(candidate_name), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name)')
+        .gte('created_at', since.toISOString())
+    }
+
+    const [{ data: cands }, { data: reqs }, { data: profiles }] = await Promise.all([
       supabase.from('candidates').select('*').order('created_at', { ascending: false }),
       supabase.from('requirements').select('*, clients(client_name)').order('created_at', { ascending: false }),
       supabase.from('profiles').select('id, full_name').eq('role', 'recruiter').eq('status', 'approved'),
     ])
 
-    const subsData = subs ?? []
+    const subsData = subsRes.data ?? []
     setAllSubmissions(subsData)
     setAllCandidates(cands ?? [])
     setAllReqs(reqs ?? [])

@@ -17,10 +17,7 @@ import { DashboardPage } from './components/dashboard/DashboardPage'
 import { ClientsPage } from './components/clients/ClientsPage'
 import { VendorsPage } from './components/vendors/VendorsPage'
 import { RequirementsPage } from './components/requirements/RequirementsPage'
-import { CandidatesPage } from './components/candidates/CandidatesPage'
 import { SubmissionsPage } from './components/submissions/SubmissionsPage'
-import { KanbanPage } from './components/kanban/KanbanPage'
-import { InterviewsPage } from './components/interviews/InterviewsPage'
 import { OffersPage } from './components/offers/OffersPage'
 import { ReportsPage } from './components/reports/ReportsPage'
 import { BulkUploadPage } from './components/bulk/BulkUploadPage'
@@ -96,10 +93,7 @@ function AppRoutes() {
         <Route path="clients" element={<ErrorBoundary><ClientsPage /></ErrorBoundary>} />
         <Route path="vendors" element={<ErrorBoundary><VendorsPage /></ErrorBoundary>} />
         <Route path="requirements" element={<ErrorBoundary><RequirementsPage /></ErrorBoundary>} />
-        <Route path="candidates" element={<ErrorBoundary><CandidatesPage /></ErrorBoundary>} />
         <Route path="submissions" element={<ErrorBoundary><SubmissionsPage /></ErrorBoundary>} />
-        <Route path="kanban" element={<ErrorBoundary><KanbanPage /></ErrorBoundary>} />
-        <Route path="interviews" element={<ErrorBoundary><InterviewsPage /></ErrorBoundary>} />
         <Route path="offers" element={<ErrorBoundary><OffersPage /></ErrorBoundary>} />
         <Route path="reports" element={<ErrorBoundary><ReportsPage /></ErrorBoundary>} />
         <Route path="bulk-upload" element={<ErrorBoundary><BulkUploadPage /></ErrorBoundary>} />

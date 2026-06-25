@@ -49,6 +49,8 @@ export function getStatusBadgeClass(status: string): string {
     closed: 'badge-closed',
     filled: 'badge-filled',
     pending: 'badge-pending',
+    cleared: 'badge-joined',
+    on_hold: 'badge-hold',
     approved: 'badge-approved',
     active: 'badge-active',
     inactive: 'badge-inactive',

@@ -10,18 +10,19 @@ interface RequirementPipelineDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-/** Clicking an FG ID in RequirementsPage opens this — the same drag-and-drop
- * Kanban board as the global Pipeline page, scoped to just this
- * requirement's submissions via KanbanBoard's requirementId prop. */
+/** Clicking an FG ID in RequirementsPage opens this — the per-requirement
+ * Kanban board, which is now the only place candidates get added to a
+ * pipeline (the global Kanban/Candidates/Interviews pages were removed in
+ * favor of consolidating everything here). */
 export function RequirementPipelineDialog({ requirementId, fgId, requirementTitle, open, onOpenChange }: RequirementPipelineDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] xl:max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="mono">{fgId}</DialogTitle>
-          <DialogDescription>{requirementTitle} — drag candidates between stages to update their status</DialogDescription>
+          <DialogDescription>{requirementTitle} — drag candidates between stages, or click a card for details</DialogDescription>
         </DialogHeader>
-        {requirementId && <KanbanBoard requirementId={requirementId} compact />}
+        {requirementId && <KanbanBoard requirementId={requirementId} />}
       </DialogContent>
     </Dialog>
   )
