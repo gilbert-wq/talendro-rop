@@ -2,7 +2,7 @@
 // TALENDRO ROP — COMPLETE TYPE DEFINITIONS
 // ============================================================
 
-export type UserRole = 'admin' | 'recruiter'
+export type UserRole = 'admin' | 'recruiter' | 'business_head'
 export type UserStatus = 'pending' | 'approved' | 'rejected' | 'inactive'
 export type RequirementStatus = 'open' | 'hold' | 'closed' | 'filled'
 export type RequirementPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -354,6 +354,7 @@ export interface CandidateNote {
   id: string
   candidate_id: string
   note: string
+  status: string | null
   created_by: string
   created_at: string
   profiles?: Pick<Profile, 'full_name'> | null

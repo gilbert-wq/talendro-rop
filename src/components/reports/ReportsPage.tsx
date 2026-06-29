@@ -13,7 +13,7 @@ import { UserAttendanceReport } from './UserAttendanceReport'
 const COLORS = ['#1e3a8a', '#22d3ee', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 export function ReportsPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isLeadership } = useAuth()
   const [period, setPeriod] = useState('30')
   const [submissionData, setSubmissionData] = useState<any[]>([])
   const [recruiterData, setRecruiterData] = useState<any[]>([])
@@ -148,8 +148,8 @@ export function ReportsPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="recruiter">Recruiter Performance</TabsTrigger>
-          <TabsTrigger value="client">Client Analytics</TabsTrigger>
-          <TabsTrigger value="vendor">Vendor Performance</TabsTrigger>
+          {isLeadership && <TabsTrigger value="client">Client Analytics</TabsTrigger>}
+          {isLeadership && <TabsTrigger value="vendor">Vendor Performance</TabsTrigger>}
           <TabsTrigger value="funnel">Candidate Funnel</TabsTrigger>
           {isAdmin && <TabsTrigger value="attendance">User Attendance</TabsTrigger>}
         </TabsList>
@@ -227,47 +227,51 @@ export function ReportsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="client">
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Submissions by Client</CardTitle></CardHeader>
-            <CardContent>
-              {clientData.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No data</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={clientData}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#22d3ee" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {isLeadership && (
+          <TabsContent value="client">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Submissions by Client</CardTitle></CardHeader>
+              <CardContent>
+                {clientData.length === 0 ? (
+                  <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No data</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={clientData}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#22d3ee" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
-        <TabsContent value="vendor">
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Submissions by Vendor</CardTitle></CardHeader>
-            <CardContent>
-              {vendorData.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No vendor-attributed submissions in this period</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={vendorData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {isLeadership && (
+          <TabsContent value="vendor">
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Submissions by Vendor</CardTitle></CardHeader>
+              <CardContent>
+                {vendorData.length === 0 ? (
+                  <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No vendor-attributed submissions in this period</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={vendorData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+                      <Tooltip />
+                      <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="funnel">
           <Card>

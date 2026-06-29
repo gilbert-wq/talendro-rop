@@ -32,7 +32,7 @@ const emptyForm = {
 }
 
 export function VendorsPage() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { toast } = useToast()
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,7 +79,15 @@ export function VendorsPage() {
 
   const handleDelete = async (v: Vendor) => {
     if (!confirm(`Delete vendor "${v.vendor_name}"?`)) return
-    await supabase.from('vendors').delete().eq('id', v.id)
+    const { error } = await supabase.from('vendors').delete().eq('id', v.id)
+    if (error) {
+      // Business Head can manage vendors but delete stays admin-only as an
+      // extra safety margin on a destructive action — this is the
+      // expected, correct rejection for that role, not a bug, but it must
+      // be surfaced rather than silently shown as a false "deleted" toast.
+      toast({ title: 'Could not delete vendor', description: error.message, variant: 'destructive' })
+      return
+    }
     await logActivity({ module: 'Vendors', action: 'Deleted vendor', details: v.vendor_name })
     toast({ title: 'Vendor deleted', variant: 'success' })
     fetchVendors()
@@ -108,9 +116,11 @@ export function VendorsPage() {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(row.original)}>
             <Edit className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(row.original)}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {isAdmin && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(row.original)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       ),
     },

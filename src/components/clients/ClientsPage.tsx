@@ -31,7 +31,7 @@ const emptyForm = {
 }
 
 export function ClientsPage() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { toast } = useToast()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,7 +78,11 @@ export function ClientsPage() {
 
   const handleDelete = async (c: Client) => {
     if (!confirm(`Delete client "${c.client_name}"?`)) return
-    await supabase.from('clients').delete().eq('id', c.id)
+    const { error } = await supabase.from('clients').delete().eq('id', c.id)
+    if (error) {
+      toast({ title: 'Could not delete client', description: error.message, variant: 'destructive' })
+      return
+    }
     await logActivity({ module: 'Clients', action: 'Deleted client', details: c.client_name })
     toast({ title: 'Client deleted', variant: 'success' })
     fetchClients()
@@ -106,9 +110,11 @@ export function ClientsPage() {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(row.original)}>
             <Edit className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(row.original)}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {isAdmin && (
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(row.original)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       ),
     },

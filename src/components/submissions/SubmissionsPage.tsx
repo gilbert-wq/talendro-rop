@@ -52,7 +52,7 @@ const emptyForm = {
 }
 
 export function SubmissionsPage() {
-  const { user } = useAuth()
+  const { user, isLeadership } = useAuth()
   const { toast } = useToast()
   const [items, setItems] = useState<Submission[]>([])
   const [requirements, setRequirements] = useState<Requirement[]>([])
@@ -121,13 +121,17 @@ export function SubmissionsPage() {
     }
     setSaving(true)
     try {
-      // If a vendor was picked from the dropdown, keep partner_name (used by
-      // exports/reports) in sync with it automatically.
-      const selectedVendor = vendors.find(v => v.id === form.vendor_id)
+      // SECURITY: partner_name is plain text on the submissions row, which
+      // recruiters can read (submissions_select is is_approved_user()).
+      // Previously this auto-copied the selected vendor's name into it,
+      // which leaked the vendor's identity right back around the new
+      // leadership-only vendors RLS. partner_name is now only ever the
+      // free-text fallback a leadership user types when no formal vendor
+      // record is selected — never a denormalized copy of vendor_name.
       const payload = {
         ...form,
         vendor_id: form.vendor_id || null,
-        partner_name: selectedVendor ? selectedVendor.vendor_name : (form.partner_name || null),
+        partner_name: form.vendor_id ? null : (form.partner_name || null),
       }
       if (editing) {
         await supabase.from('submissions').update(payload).eq('id', editing.id)
@@ -164,9 +168,11 @@ export function SubmissionsPage() {
     'Submission Date': s.submission_date,
     'FG ID': s.requirements?.fg_id ?? '',
     'Position': s.requirements?.requirement_title ?? '',
-    'Client': (s.requirements as any)?.clients?.client_name ?? '',
-    'Partner': s.partner_name ?? '',
-    'Vendor': s.vendors?.vendor_name ?? '',
+    ...(isLeadership ? {
+      'Client': (s.requirements as any)?.clients?.client_name ?? '',
+      'Partner': s.partner_name ?? '',
+      'Vendor': s.vendors?.vendor_name ?? '',
+    } : {}),
     'Candidate Name': s.candidates?.candidate_name ?? '',
     'Contact': s.candidates?.mobile_number ?? '',
     'Email': s.candidates?.email_address ?? '',
@@ -195,17 +201,25 @@ export function SubmissionsPage() {
       cell: ({ row }) => <span className="mono text-xs font-semibold text-primary">{row.original.requirements?.fg_id}</span>,
     },
     {
-      id: 'client', header: 'Client',
-      cell: ({ row }) => (row.original.requirements as any)?.clients?.client_name ?? '—',
-    },
-    {
       id: 'position', header: 'Position',
       cell: ({ row }) => <span className="text-xs">{row.original.requirements?.requirement_title}</span>,
     },
-    {
-      id: 'vendor', header: 'Vendor',
-      cell: ({ row }) => row.original.vendors?.vendor_name ?? row.original.partner_name ?? '—',
-    },
+    // Client and Vendor columns are leadership-only — recruiters lose both
+    // client portfolio visibility and vendor details (name/contact info)
+    // per the access-control changes above. Spreading an empty array when
+    // not leadership keeps these columns out entirely rather than showing
+    // a column full of "—" (which RLS would produce anyway, but an absent
+    // column reads cleaner than a uniformly blank one).
+    ...(isLeadership ? [
+      {
+        id: 'client', header: 'Client',
+        cell: ({ row }: any) => (row.original.requirements as any)?.clients?.client_name ?? '—',
+      },
+      {
+        id: 'vendor', header: 'Vendor',
+        cell: ({ row }: any) => row.original.vendors?.vendor_name ?? row.original.partner_name ?? '—',
+      },
+    ] as ColumnDef<Submission>[] : []),
     {
       id: 'candidate_name', header: 'Candidate',
       cell: ({ row }) => <span className="font-semibold">{row.original.candidates?.candidate_name}</span>,
@@ -310,22 +324,26 @@ export function SubmissionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Vendor / Staffing Partner</Label>
-              <Select value={form.vendor_id || 'none'} onValueChange={v => setForm(f => ({ ...f, vendor_id: v === 'none' ? '' : v }))}>
-                <SelectTrigger><SelectValue placeholder="Select vendor (optional)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None (direct sourcing)</SelectItem>
-                  {vendors.map(v => (
-                    <SelectItem key={v.id} value={v.id}>{v.vendor_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Partner Name (free text, used if no vendor selected)</Label>
-              <Input value={form.partner_name} onChange={e => setForm(f => ({ ...f, partner_name: e.target.value }))} placeholder="Partner company name" disabled={!!form.vendor_id} />
-            </div>
+            {isLeadership && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Vendor / Staffing Partner</Label>
+                  <Select value={form.vendor_id || 'none'} onValueChange={v => setForm(f => ({ ...f, vendor_id: v === 'none' ? '' : v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select vendor (optional)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (direct sourcing)</SelectItem>
+                      {vendors.map(v => (
+                        <SelectItem key={v.id} value={v.id}>{v.vendor_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Partner Name (free text, used if no vendor selected)</Label>
+                  <Input value={form.partner_name} onChange={e => setForm(f => ({ ...f, partner_name: e.target.value }))} placeholder="Partner company name" disabled={!!form.vendor_id} />
+                </div>
+              </>
+            )}
             <div className="space-y-1.5">
               <Label>Status</Label>
               <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>

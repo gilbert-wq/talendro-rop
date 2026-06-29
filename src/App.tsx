@@ -17,6 +17,8 @@ import { DashboardPage } from './components/dashboard/DashboardPage'
 import { ClientsPage } from './components/clients/ClientsPage'
 import { VendorsPage } from './components/vendors/VendorsPage'
 import { RequirementsPage } from './components/requirements/RequirementsPage'
+import { MyProfilePage } from './components/profile/MyProfilePage'
+import { RecruitersOverviewPage } from './components/users/RecruitersOverviewPage'
 import { SubmissionsPage } from './components/submissions/SubmissionsPage'
 import { OffersPage } from './components/offers/OffersPage'
 import { ReportsPage } from './components/reports/ReportsPage'
@@ -75,6 +77,12 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function RequireLeadership({ children }: { children: React.ReactNode }) {
+  const { isLeadership } = useAuth()
+  if (!isLeadership) return <ForbiddenPage />
+  return <>{children}</>
+}
+
 function AppRoutes() {
   const { user } = useAuth()
   useEffect(() => {
@@ -90,9 +98,11 @@ function AppRoutes() {
       <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
-        <Route path="clients" element={<ErrorBoundary><ClientsPage /></ErrorBoundary>} />
-        <Route path="vendors" element={<ErrorBoundary><VendorsPage /></ErrorBoundary>} />
+        <Route path="clients" element={<RequireLeadership><ErrorBoundary><ClientsPage /></ErrorBoundary></RequireLeadership>} />
+        <Route path="vendors" element={<RequireLeadership><ErrorBoundary><VendorsPage /></ErrorBoundary></RequireLeadership>} />
         <Route path="requirements" element={<ErrorBoundary><RequirementsPage /></ErrorBoundary>} />
+        <Route path="profile" element={<ErrorBoundary><MyProfilePage /></ErrorBoundary>} />
+        <Route path="recruiters" element={<RequireLeadership><ErrorBoundary><RecruitersOverviewPage /></ErrorBoundary></RequireLeadership>} />
         <Route path="submissions" element={<ErrorBoundary><SubmissionsPage /></ErrorBoundary>} />
         <Route path="offers" element={<ErrorBoundary><OffersPage /></ErrorBoundary>} />
         <Route path="reports" element={<ErrorBoundary><ReportsPage /></ErrorBoundary>} />

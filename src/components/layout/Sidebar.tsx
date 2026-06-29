@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Building2, Truck, FileText,
   Send, Gift, BarChart3, Activity,
   Bell, Upload, Settings, ChevronLeft, ChevronRight, LogOut,
-  Shield, Target, UsersRound
+  Shield, Target, UsersRound, UserCircle, Briefcase
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -15,6 +15,9 @@ interface NavItem {
   icon: React.ElementType
   href: string
   adminOnly?: boolean
+  /** Admin or business_head. Used for Clients/Vendors (full management,
+   * hidden from recruiters entirely) and the Recruiters overview page. */
+  leadershipOnly?: boolean
   badge?: number
 }
 
@@ -25,9 +28,11 @@ function useNavItems() {
 
   const items: NavItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-    { label: 'Clients', icon: Building2, href: '/clients' },
-    { label: 'Vendors', icon: Truck, href: '/vendors' },
+    { label: 'My Profile', icon: UserCircle, href: '/profile' },
+    { label: 'Clients', icon: Building2, href: '/clients', leadershipOnly: true },
+    { label: 'Vendors', icon: Truck, href: '/vendors', leadershipOnly: true },
     { label: 'Requirements', icon: FileText, href: '/requirements' },
+    { label: 'Recruiters', icon: Briefcase, href: '/recruiters', leadershipOnly: true },
     { label: 'Submissions', icon: Send, href: '/submissions' },
     { label: 'Offers & Joinings', icon: Gift, href: '/offers' },
     { label: 'Reports', icon: BarChart3, href: '/reports' },
@@ -48,9 +53,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
-  const { profile, isAdmin, signOut } = useAuth()
+  const { profile, isAdmin, isLeadership, signOut } = useAuth()
   const navItems = useNavItems()
-  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin)
+  const visibleItems = navItems.filter(item => (!item.adminOnly || isAdmin) && (!item.leadershipOnly || isLeadership))
 
   return (
     <aside
@@ -113,7 +118,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <p className="text-xs font-semibold truncate">{profile?.full_name}</p>
               <div className="flex items-center gap-1">
                 {isAdmin && <Shield className="h-2.5 w-2.5 text-primary" />}
-                <p className="text-xs text-muted-foreground capitalize">{profile?.role}</p>
+                {profile?.role === 'business_head' && <Briefcase className="h-2.5 w-2.5 text-primary" />}
+                <p className="text-xs text-muted-foreground capitalize">{profile?.role?.replace('_', ' ')}</p>
               </div>
             </div>
             <button onClick={signOut} className="text-muted-foreground hover:text-destructive transition-colors" title="Sign Out">

@@ -15,6 +15,7 @@ import { RequirementPipelineDialog } from './RequirementPipelineDialog'
 import { formatDate, getStatusBadgeClass, generateFGId, downloadCSV, cn, openSignedFile } from '@/lib/utils'
 
 interface Client { id: string; client_name: string }
+interface RecruiterOption { id: string; full_name: string }
 interface Requirement {
   id: string
   fg_id: string
@@ -31,8 +32,11 @@ interface Requirement {
   status: string
   jd_url: string | null
   notes: string | null
+  deadline_date: string | null
+  assigned_to: string | null
   created_at: string
   clients?: { client_name: string } | null
+  assignee?: { full_name: string } | null
 }
 
 const emptyForm = {
@@ -40,13 +44,15 @@ const emptyForm = {
   mandatory_skills: '', secondary_skills: '',
   experience_min: '', experience_max: '',
   location: '', openings: '1', priority: 'medium', status: 'open', notes: '',
+  deadline_date: '', assigned_to: '',
 }
 
 export function RequirementsPage() {
-  const { user } = useAuth()
+  const { user, isLeadership } = useAuth()
   const { toast } = useToast()
   const [items, setItems] = useState<Requirement[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [recruiters, setRecruiters] = useState<RecruiterOption[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Requirement | null>(null)
@@ -62,12 +68,18 @@ export function RequirementsPage() {
 
   const fetchAll = async () => {
     setLoading(true)
-    const [{ data: reqs }, { data: cls }] = await Promise.all([
-      supabase.from('requirements').select('*, clients(client_name)').order('created_at', { ascending: false }),
+    // clients(client_name) and the recruiters list both resolve to nothing
+    // for a recruiter caller — clients_select and profiles_select are
+    // leadership/admin-gated by RLS — so this single query is safe to run
+    // for every role; a recruiter just naturally gets a narrower result.
+    const [{ data: reqs }, { data: cls }, { data: recs }] = await Promise.all([
+      supabase.from('requirements').select('*, clients(client_name), assignee:profiles!assigned_to(full_name)').order('created_at', { ascending: false }),
       supabase.from('clients').select('id, client_name').eq('status', 'active'),
+      supabase.from('profiles').select('id, full_name').eq('role', 'recruiter').eq('status', 'approved'),
     ])
     setItems(reqs ?? [])
     setClients(cls ?? [])
+    setRecruiters(recs ?? [])
     setLoading(false)
   }
 
@@ -89,6 +101,7 @@ export function RequirementsPage() {
       experience_max: r.experience_max?.toString() ?? '',
       location: r.location ?? '', openings: r.openings.toString(),
       priority: r.priority, status: r.status, notes: r.notes ?? '',
+      deadline_date: r.deadline_date ?? '', assigned_to: r.assigned_to ?? '',
     })
     setJdFile(null)
     setOpen(true)
@@ -124,11 +137,17 @@ export function RequirementsPage() {
         status: form.status,
         notes: form.notes || null,
         jd_url,
+        deadline_date: form.deadline_date || null,
+        assigned_to: form.assigned_to || null,
       }
 
       if (editing) {
         await supabase.from('requirements').update(payload).eq('id', editing.id)
-        await logActivity({ module: 'Requirements', action: 'Updated requirement', details: form.requirement_title, recordId: editing.id })
+        await logActivity({ module: 'Requirements', action: 'Updated requirement', details: form.requirement_title, recordId: editing.id, activityType: 'requirement_updated' })
+        if (form.assigned_to && form.assigned_to !== (editing.assigned_to ?? '')) {
+          const recruiterName = recruiters.find(r => r.id === form.assigned_to)?.full_name ?? 'recruiter'
+          await logActivity({ module: 'Requirements', action: 'Assigned requirement', details: `${form.requirement_title} → ${recruiterName}`, recordId: editing.id, activityType: 'requirement_assigned' })
+        }
         toast({ title: 'Requirement updated', variant: 'success' })
       } else {
         await supabase.from('requirements').insert({ ...payload, created_by: user!.id })
@@ -152,20 +171,41 @@ export function RequirementsPage() {
 
   const filtered = filterStatus === 'all' ? items : items.filter(r => r.status === filterStatus)
 
-  const columns: ColumnDef<Requirement>[] = [
-    {
-      accessorKey: 'fg_id', header: 'FG ID',
-      cell: ({ row }) => (
-        <button
-          type="button"
-          onClick={() => setPipelineReq(row.original)}
-          className="mono text-xs font-semibold text-primary hover:underline"
-          title="View pipeline for this requirement"
-        >
-          {row.original.fg_id}
-        </button>
-      ),
-    },
+  const fgIdColumn: ColumnDef<Requirement> = {
+    accessorKey: 'fg_id', header: 'FG ID',
+    cell: ({ row }) => (
+      <button
+        type="button"
+        onClick={() => setPipelineReq(row.original)}
+        className="mono text-xs font-semibold text-primary hover:underline"
+        title="View pipeline for this requirement"
+      >
+        {row.original.fg_id}
+      </button>
+    ),
+  }
+
+  const jdColumn: ColumnDef<Requirement> = {
+    id: 'jd', header: 'JD',
+    cell: ({ row }) => row.original.jd_url ? (
+      <Button
+        variant="ghost" size="icon" className="h-7 w-7" title="View JD" aria-label="View JD"
+        onClick={async () => {
+          const { error } = await openSignedFile('jd-files', row.original.jd_url!)
+          if (error) toast({ title: 'Could not open JD', variant: 'destructive' })
+        }}
+      >
+        <Eye className="h-3.5 w-3.5" />
+      </Button>
+    ) : <span className="text-muted-foreground text-xs">—</span>,
+  }
+
+  // Recruiters get ONLY: position name, JD, deadline, date of entry, and
+  // status — no client/vendor info, no openings/priority/skills, and no
+  // create/edit/delete actions. Leadership (admin or business_head) gets
+  // the full management table plus the new Deadline/Assigned To columns.
+  const columns: ColumnDef<Requirement>[] = isLeadership ? [
+    fgIdColumn,
     {
       accessorKey: 'requirement_title', header: 'Position',
       cell: ({ row }) => <span className="font-medium">{row.original.requirement_title}</span>,
@@ -199,6 +239,14 @@ export function RequirementsPage() {
       ),
     },
     {
+      accessorKey: 'deadline_date', header: 'Deadline',
+      cell: ({ row }) => row.original.deadline_date ? formatDate(row.original.deadline_date) : '—',
+    },
+    {
+      accessorKey: 'assignee', header: 'Assigned To',
+      cell: ({ row }) => row.original.assignee?.full_name ?? <span className="text-muted-foreground">Unassigned</span>,
+    },
+    {
       accessorKey: 'mandatory_skills', header: 'Key Skills',
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1 max-w-48">
@@ -211,7 +259,7 @@ export function RequirementsPage() {
         </div>
       ),
     },
-    { accessorKey: 'created_at', header: 'Created', cell: ({ row }) => formatDate(row.original.created_at) },
+    { accessorKey: 'created_at', header: 'Date of Entry', cell: ({ row }) => formatDate(row.original.created_at) },
     {
       id: 'actions', header: 'Actions',
       cell: ({ row }) => (
@@ -236,6 +284,33 @@ export function RequirementsPage() {
         </div>
       ),
     },
+  ] : [
+    fgIdColumn,
+    {
+      accessorKey: 'requirement_title', header: 'Position',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{row.original.requirement_title}</span>
+          {row.original.assigned_to === user?.id && (
+            <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold">Assigned to you</span>
+          )}
+        </div>
+      ),
+    },
+    jdColumn,
+    {
+      accessorKey: 'deadline_date', header: 'Deadline',
+      cell: ({ row }) => row.original.deadline_date ? formatDate(row.original.deadline_date) : '—',
+    },
+    { accessorKey: 'created_at', header: 'Date of Entry', cell: ({ row }) => formatDate(row.original.created_at) },
+    {
+      accessorKey: 'status', header: 'Status',
+      cell: ({ row }) => (
+        <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize", getStatusBadgeClass(row.original.status))}>
+          {row.original.status}
+        </span>
+      ),
+    },
   ]
 
   return (
@@ -256,12 +331,16 @@ export function RequirementsPage() {
               <SelectItem value="filled">Filled</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={() => downloadCSV(items as any[], 'requirements')}>
-            <Download className="h-3.5 w-3.5 mr-1.5" /> Export
-          </Button>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Requirement
-          </Button>
+          {isLeadership && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => downloadCSV(items as any[], 'requirements')}>
+                <Download className="h-3.5 w-3.5 mr-1.5" /> Export
+              </Button>
+              <Button size="sm" onClick={openCreate}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Requirement
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -284,6 +363,20 @@ export function RequirementsPage() {
                   <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                   <SelectContent>
                     {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Deadline Date</Label>
+                <Input type="date" value={form.deadline_date} onChange={e => setForm(f => ({ ...f, deadline_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Assign To Recruiter</Label>
+                <Select value={form.assigned_to || 'unassigned'} onValueChange={v => setForm(f => ({ ...f, assigned_to: v === 'unassigned' ? '' : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {recruiters.map(r => <SelectItem key={r.id} value={r.id}>{r.full_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

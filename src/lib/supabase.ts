@@ -32,7 +32,7 @@ export type Database = {
           id: string
           email: string
           full_name: string
-          role: 'admin' | 'recruiter'
+          role: 'admin' | 'recruiter' | 'business_head'
           status: 'pending' | 'approved' | 'rejected' | 'inactive'
           phone: string | null
           created_at: string
@@ -93,6 +93,8 @@ export type Database = {
           status: 'open' | 'hold' | 'closed' | 'filled'
           jd_url: string | null
           notes: string | null
+          deadline_date: string | null
+          assigned_to: string | null
           created_by: string
           created_at: string
           updated_at: string
@@ -231,6 +233,7 @@ export type Database = {
           id: string
           candidate_id: string
           note: string
+          status: string | null
           created_by: string
           created_at: string
         }

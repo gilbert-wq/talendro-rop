@@ -46,7 +46,7 @@ function parseCSV(text: string): Record<string, string>[] {
 }
 
 export function BulkUploadPage() {
-  const { user } = useAuth()
+  const { user, isLeadership } = useAuth()
   const { toast } = useToast()
   const [results, setResults] = useState<Record<string, UploadResult | null>>({
     candidates: null, vendors: null, clients: null, requirements: null,
@@ -143,12 +143,16 @@ export function BulkUploadPage() {
     }
   }
 
-  const uploadTypes = [
+  const allUploadTypes = [
     { id: 'candidates', label: 'Candidates', description: 'Import candidate profiles in bulk' },
-    { id: 'vendors', label: 'Vendors', description: 'Import vendor database' },
-    { id: 'clients', label: 'Clients', description: 'Import client records' },
-    { id: 'requirements', label: 'Requirements', description: 'Import job requirements' },
+    { id: 'vendors', label: 'Vendors', description: 'Import vendor database', leadershipOnly: true },
+    { id: 'clients', label: 'Clients', description: 'Import client records', leadershipOnly: true },
+    { id: 'requirements', label: 'Requirements', description: 'Import job requirements', leadershipOnly: true },
   ]
+  // vendors/clients/requirements inserts are leadership-only via RLS now —
+  // hiding these tabs for recruiters avoids every row in those imports
+  // failing with a confusing permissions error.
+  const uploadTypes = allUploadTypes.filter(t => !t.leadershipOnly || isLeadership)
 
   return (
     <div className="space-y-4">

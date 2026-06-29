@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { CheckCircle, XCircle, UserX, UserCheck, RotateCcw, Shield } from 'lucide-react'
+import { CheckCircle, XCircle, UserX, UserCheck, RotateCcw, Shield, Briefcase } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { logActivity } from '@/lib/activityLogger'
@@ -18,6 +18,12 @@ interface Profile {
   phone: string | null
   created_at: string
 }
+
+const ROLE_OPTIONS = [
+  { value: 'recruiter', label: 'Recruiter' },
+  { value: 'business_head', label: 'Business Head' },
+  { value: 'admin', label: 'Admin' },
+]
 
 export function UsersPage() {
   const { toast } = useToast()
@@ -41,6 +47,24 @@ export function UsersPage() {
       activityType: status === 'approved' ? 'user_approved' : status === 'rejected' ? 'user_rejected' : undefined,
     })
     toast({ title: `User ${status}`, variant: 'success' })
+    fetchUsers()
+  }
+
+  // "based on the role their UI will change automatically" — this is the
+  // one control point for that: an admin moves a person between
+  // recruiter/business_head/admin here, and every RLS policy + frontend
+  // gate (Sidebar, RequireLeadership, Requirements columns, Clients/
+  // Vendors access) reads from this same profiles.role value.
+  const updateRole = async (user: Profile, role: string) => {
+    if (role === user.role) return
+    if (!window.confirm(`Change ${user.full_name}'s role from ${user.role.replace('_', ' ')} to ${role.replace('_', ' ')}?`)) return
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', user.id)
+    if (error) {
+      toast({ title: 'Could not update role', description: error.message, variant: 'destructive' })
+      return
+    }
+    await logActivity({ module: 'Users', action: 'Changed role', details: `${user.full_name}: ${user.role} → ${role}`, recordId: user.id, activityType: 'role_changed' })
+    toast({ title: 'Role updated', variant: 'success' })
     fetchUsers()
   }
 
@@ -83,12 +107,22 @@ export function UsersPage() {
     { accessorKey: 'email', header: 'Email', cell: ({ row }) => <span className="text-xs">{row.original.email}</span> },
     {
       accessorKey: 'role', header: 'Role',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          {row.original.role === 'admin' && <Shield className="h-3 w-3 text-primary" />}
-          <span className="text-sm capitalize">{row.original.role}</span>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const u = row.original
+        return (
+          <div className="flex items-center gap-1.5">
+            {u.role === 'admin' && <Shield className="h-3 w-3 text-primary flex-shrink-0" />}
+            {u.role === 'business_head' && <Briefcase className="h-3 w-3 text-primary flex-shrink-0" />}
+            <select
+              value={u.role}
+              onChange={e => updateRole(u, e.target.value)}
+              className="text-sm capitalize bg-transparent border rounded-md px-1.5 py-0.5 hover:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {ROLE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'status', header: 'Status',
