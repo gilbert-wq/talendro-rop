@@ -152,7 +152,11 @@ export function MyProfilePage() {
 
           <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" />{profile.email}</div>
-            <div className="flex items-center gap-1.5 capitalize"><Shield className="h-3.5 w-3.5" />{profile.role.replace('_', ' ')}</div>
+            <div className="flex items-center gap-1.5 capitalize">
+              <Shield className="h-3.5 w-3.5" />
+              {profile.designation || profile.role}
+              {profile.designation && <span className="lowercase text-muted-foreground">({profile.role})</span>}
+            </div>
             <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />Joined {formatDate(profile.created_at)}</div>
           </div>
 

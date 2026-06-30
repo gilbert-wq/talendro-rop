@@ -2,7 +2,7 @@
 // TALENDRO ROP — COMPLETE TYPE DEFINITIONS
 // ============================================================
 
-export type UserRole = 'admin' | 'recruiter' | 'business_head'
+export type UserRole = 'admin' | 'recruiter' | 'leadership'
 export type UserStatus = 'pending' | 'approved' | 'rejected' | 'inactive'
 export type RequirementStatus = 'open' | 'hold' | 'closed' | 'filled'
 export type RequirementPriority = 'low' | 'medium' | 'high' | 'urgent'

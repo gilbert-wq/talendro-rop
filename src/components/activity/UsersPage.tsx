@@ -21,7 +21,7 @@ interface Profile {
 
 const ROLE_OPTIONS = [
   { value: 'recruiter', label: 'Recruiter' },
-  { value: 'business_head', label: 'Business Head' },
+  { value: 'leadership', label: 'Leadership' },
   { value: 'admin', label: 'Admin' },
 ]
 
@@ -52,7 +52,7 @@ export function UsersPage() {
 
   // "based on the role their UI will change automatically" — this is the
   // one control point for that: an admin moves a person between
-  // recruiter/business_head/admin here, and every RLS policy + frontend
+  // recruiter/leadership/admin here, and every RLS policy + frontend
   // gate (Sidebar, RequireLeadership, Requirements columns, Clients/
   // Vendors access) reads from this same profiles.role value.
   const updateRole = async (user: Profile, role: string) => {
@@ -68,22 +68,33 @@ export function UsersPage() {
     fetchUsers()
   }
 
+  const [resettingId, setResettingId] = useState<string | null>(null)
+
   const resetPassword = async (user: Profile) => {
-    // SECURITY: supabase.auth.admin.* requires the service-role key and must
-    // never be called from a browser client (the anon key this app ships
-    // with cannot actually authorize it). The previous code called it
-    // anyway and silently relied on this fallback succeeding — a landmine,
-    // since "fixing" the failing admin call by adding a service-role key to
-    // a VITE_* env var would leak full database-bypass credentials to every
-    // visitor. resetPasswordForEmail is the correct, client-safe API.
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-    if (error) {
-      toast({ title: 'Could not send reset email', description: error.message, variant: 'destructive' })
-      return
+    if (!window.confirm(`Reset ${user.full_name}'s password? Their current password will stop working immediately and they'll get an email to set a new one.`)) return
+    setResettingId(user.id)
+    try {
+      // Server-side function using the service-role key — see
+      // supabase/functions/admin-reset-password/index.ts. This is the
+      // genuine admin-triggered reset (works for ANY account: recruiter,
+      // leadership, or admin), unlike resetPasswordForEmail which only
+      // supports a user requesting their own reset.
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: { targetUserId: user.id },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error ?? error?.message ?? 'Unknown error')
+      }
+      await logActivity({ module: 'Users', action: 'Reset password', details: user.full_name, recordId: user.id, activityType: 'password_reset' })
+      toast({ title: 'Password reset', description: `${user.full_name} will receive an email to set a new password.`, variant: 'success' })
+    } catch (err: any) {
+      toast({ title: 'Could not reset password', description: err?.message, variant: 'destructive' })
+    } finally {
+      setResettingId(null)
     }
-    toast({ title: 'Password reset email sent', variant: 'success' })
   }
 
   const pending = users.filter(u => u.status === 'pending')
@@ -112,7 +123,7 @@ export function UsersPage() {
         return (
           <div className="flex items-center gap-1.5">
             {u.role === 'admin' && <Shield className="h-3 w-3 text-primary flex-shrink-0" />}
-            {u.role === 'business_head' && <Briefcase className="h-3 w-3 text-primary flex-shrink-0" />}
+            {u.role === 'leadership' && <Briefcase className="h-3 w-3 text-primary flex-shrink-0" />}
             <select
               value={u.role}
               onChange={e => updateRole(u, e.target.value)}
@@ -159,8 +170,11 @@ export function UsersPage() {
                 <UserCheck className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" title="Reset Password" aria-label="Reset Password" onClick={() => resetPassword(u)}>
-              <RotateCcw className="h-3.5 w-3.5" />
+            <Button
+              variant="ghost" size="icon" className="h-7 w-7 text-blue-600" title="Reset Password" aria-label="Reset Password"
+              onClick={() => resetPassword(u)} disabled={resettingId === u.id}
+            >
+              <RotateCcw className={cn("h-3.5 w-3.5", resettingId === u.id && "animate-spin")} />
             </Button>
           </div>
         )

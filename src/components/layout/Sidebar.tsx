@@ -15,7 +15,7 @@ interface NavItem {
   icon: React.ElementType
   href: string
   adminOnly?: boolean
-  /** Admin or business_head. Used for Clients/Vendors (full management,
+  /** Admin or leadership. Used for Clients/Vendors (full management,
    * hidden from recruiters entirely) and the Recruiters overview page. */
   leadershipOnly?: boolean
   badge?: number
@@ -117,9 +117,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="flex-1 overflow-hidden">
               <p className="text-xs font-semibold truncate">{profile?.full_name}</p>
               <div className="flex items-center gap-1">
-                {isAdmin && <Shield className="h-2.5 w-2.5 text-primary" />}
-                {profile?.role === 'business_head' && <Briefcase className="h-2.5 w-2.5 text-primary" />}
-                <p className="text-xs text-muted-foreground capitalize">{profile?.role?.replace('_', ' ')}</p>
+                {isAdmin && <Shield className="h-2.5 w-2.5 text-primary flex-shrink-0" />}
+                {profile?.role === 'leadership' && <Briefcase className="h-2.5 w-2.5 text-primary flex-shrink-0" />}
+                <p className="text-xs text-muted-foreground capitalize truncate">
+                  {profile?.designation || profile?.role}
+                  {profile?.designation && <span className="lowercase"> · {profile.role}</span>}
+                </p>
               </div>
             </div>
             <button onClick={signOut} className="text-muted-foreground hover:text-destructive transition-colors" title="Sign Out">

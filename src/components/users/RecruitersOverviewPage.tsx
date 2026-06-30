@@ -22,7 +22,7 @@ interface RecruiterRow {
  * same RecruiterProfileCard the admin Users page uses — addresses "view
  * recruiter profile access should be given to Leadership role". This page
  * is separate from admin's User Management (which also handles account
- * approval/role changes, a system-administration function business_head
+ * approval/role changes, a system-administration function the leadership
  * doesn't get) and is where assigning a requirement to a recruiter is most
  * naturally surfaced as context, even though the actual assignment action
  * lives on the Requirements page itself. */

@@ -11,11 +11,14 @@ interface AuthContextType {
   profile: Profile | null
   loading: boolean
   isAdmin: boolean
-  /** Admin OR business_head — the "leadership" tier that gets full
-   * Clients/Vendors management and recruiter-profile visibility, but not
-   * system administration (user approval, role changes, settings). */
+  /** Admin OR leadership — the tier that gets full Clients/Vendors
+   * management, requirement assignment, and recruiter-profile visibility,
+   * but not system administration (user approval, role changes,
+   * settings). "Leadership" is a permission tier, not a job title — a
+   * CEO, MD, Business Head, or VP might all hold it; their actual title
+   * is captured by profiles.designation, not by the role value. */
   isLeadership: boolean
-  isBusinessHead: boolean
+  isLeadershipRole: boolean
   isApproved: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>
@@ -111,13 +114,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const isAdmin = profile?.role === 'admin'
-  const isBusinessHead = profile?.role === 'business_head'
-  const isLeadership = isAdmin || isBusinessHead
+  const isLeadershipRole = profile?.role === 'leadership'
+  const isLeadership = isAdmin || isLeadershipRole
   const isApproved = profile?.status === 'approved'
 
   return (
     <AuthContext.Provider value={{
-      user, session, profile, loading, isAdmin, isLeadership, isBusinessHead, isApproved,
+      user, session, profile, loading, isAdmin, isLeadership, isLeadershipRole, isApproved,
       signIn, signUp, signOut, refreshProfile,
     }}>
       {children}
