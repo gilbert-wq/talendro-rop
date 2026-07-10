@@ -53,8 +53,8 @@ export function UsersPage() {
   // "based on the role their UI will change automatically" — this is the
   // one control point for that: an admin moves a person between
   // recruiter/leadership/admin here, and every RLS policy + frontend
-  // gate (Sidebar, RequireLeadership, Requirements columns, Clients/
-  // Vendors access) reads from this same profiles.role value.
+  // gate (Sidebar, RequireLeadership, Requirements columns, Clients
+  // access) reads from this same profiles.role value.
   const updateRole = async (user: Profile, role: string) => {
     if (role === user.role) return
     if (!window.confirm(`Change ${user.full_name}'s role from ${user.role.replace('_', ' ')} to ${role.replace('_', ' ')}?`)) return

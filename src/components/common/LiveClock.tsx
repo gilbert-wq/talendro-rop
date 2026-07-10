@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { Clock } from 'lucide-react'
 
-/** FEATURE 5: live clock, updates every second. Visible to admin, recruiter,
- * and vendor alike — it's placed in Header.tsx which renders for every
- * authenticated role, so no extra role-gating is needed here. */
+/** FEATURE 5: live clock, updates every second. Visible to every role — it's
+ * placed in Header.tsx which renders for every authenticated user, so no
+ * extra role-gating is needed here. */
 export function LiveClock() {
   const [now, setNow] = useState(new Date())
 

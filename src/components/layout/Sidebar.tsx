@@ -1,7 +1,7 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Building2, Truck, FileText,
+  LayoutDashboard, Users, Building2, FileText,
   Send, Gift, BarChart3, Activity,
   Bell, Upload, Settings, ChevronLeft, ChevronRight, LogOut,
   Shield, Target, UsersRound, UserCircle, Briefcase
@@ -15,7 +15,7 @@ interface NavItem {
   icon: React.ElementType
   href: string
   adminOnly?: boolean
-  /** Admin or leadership. Used for Clients/Vendors (full management,
+  /** Admin or leadership. Used for Clients (full management,
    * hidden from recruiters entirely) and the Recruiters overview page. */
   leadershipOnly?: boolean
   badge?: number
@@ -30,7 +30,6 @@ function useNavItems() {
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { label: 'My Profile', icon: UserCircle, href: '/profile' },
     { label: 'Clients', icon: Building2, href: '/clients', leadershipOnly: true },
-    { label: 'Vendors', icon: Truck, href: '/vendors', leadershipOnly: true },
     { label: 'Requirements', icon: FileText, href: '/requirements' },
     { label: 'Recruiters', icon: Briefcase, href: '/recruiters', leadershipOnly: true },
     { label: 'Submissions', icon: Send, href: '/submissions' },

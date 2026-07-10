@@ -15,12 +15,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 })
 
-// NOTE: this Database type documents the full 16-table schema (it was
+// NOTE: this Database type documents the 16-table schema (it was
 // previously missing 6 tables — candidate_documents, candidate_notes,
-// candidate_stage_history, teams, team_members, targets — now added).
+// candidate_stage_history, teams, team_members, targets — now added; the
+// `vendors` table has since been removed entirely — Talendro is an RPO
+// platform, not a vendor marketplace).
 // It is intentionally NOT passed as createClient<Database>(...) yet: doing
 // so requires updating every relationship-select string across
-// src/lib/services.ts (e.g. `*, candidates(*), vendors(vendor_name)`) to
+// src/lib/services.ts (e.g. `*, candidates(*), requirements(fg_id)`) to
 // match supabase-js's typed-join inference, which is a larger follow-up
 // refactor. Treat this type as the source of truth for the schema shape
 // in the meantime.
@@ -57,24 +59,6 @@ export type Database = {
         }
         Insert: Omit<Database['public']['Tables']['clients']['Row'], 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Database['public']['Tables']['clients']['Insert']>
-      }
-      vendors: {
-        Row: {
-          id: string
-          vendor_name: string
-          contact_person: string | null
-          email: string | null
-          mobile: string | null
-          location: string | null
-          gst_number: string | null
-          status: 'active' | 'inactive'
-          notes: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: Omit<Database['public']['Tables']['vendors']['Row'], 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Database['public']['Tables']['vendors']['Insert']>
       }
       requirements: {
         Row: {
@@ -138,7 +122,6 @@ export type Database = {
           submission_date: string
           requirement_id: string
           candidate_id: string
-          vendor_id: string | null
           partner_name: string | null
           status: 'sourced' | 'submitted' | 'shortlisted' | 'interview_scheduled' | 'l1_cleared' | 'l2_cleared' | 'final_round' | 'offered' | 'joined' | 'rejected'
           notes: string | null

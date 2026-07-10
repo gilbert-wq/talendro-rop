@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import {
-  clientsService, vendorsService, requirementsService, candidatesService,
+  clientsService, requirementsService, candidatesService,
   submissionsService, interviewsService, offersService, teamsService,
   targetsService, activityLogsService, notificationsService, dashboardService,
   profilesService,
@@ -12,7 +12,6 @@ export const QUERY_KEYS = {
   recruiterKPIs: ['recruiter-kpis'] as const,
   clients: ['clients'] as const,
   clientsActive: ['clients', 'active'] as const,
-  vendors: ['vendors'] as const,
   requirements: ['requirements'] as const,
   requirementsOpen: ['requirements', 'open'] as const,
   candidates: ['candidates'] as const,
@@ -45,10 +44,6 @@ export function useClients() {
 
 export function useActiveClients() {
   return useQuery({ queryKey: QUERY_KEYS.clientsActive, queryFn: async () => { const { data, error } = await clientsService.getActive(); if (error) throw error; return data ?? [] } })
-}
-
-export function useVendors() {
-  return useQuery({ queryKey: QUERY_KEYS.vendors, queryFn: async () => { const { data, error } = await vendorsService.getAll(); if (error) throw error; return data ?? [] } })
 }
 
 export function useRequirements() {

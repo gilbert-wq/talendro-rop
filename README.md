@@ -41,6 +41,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 2. Copy the entire contents of `supabase/migrations/001_complete_schema.sql`
 3. Paste and run in SQL Editor
 4. Wait for completion (creates all tables, indexes, triggers, RLS policies, storage buckets)
+5. Run the rest of `supabase/migrations/` **in numeric order** (002 → 009) — each is idempotent and layers on security fixes, the three-tier role model, and the vendor-module removal on top of the base schema.
 
 ### 5. Create your first Admin user
 
@@ -101,7 +102,6 @@ Follow prompts. Add environment variables when asked.
 |--------|-------------|
 | Dashboard | KPI cards, charts, recent activity |
 | Clients | Client CRM with full CRUD |
-| Vendors | Vendor management |
 | Requirements | Job requirements with JD upload |
 | Candidates | Full candidate profiles, resume upload |
 | Submissions | Core submission tracker (like staffing ATS) |
@@ -160,7 +160,6 @@ talendro-rop/
 │   │   ├── auth/            # Login, Signup, etc.
 │   │   ├── dashboard/       # Dashboard page
 │   │   ├── clients/         # Client management
-│   │   ├── vendors/         # Vendor management
 │   │   ├── requirements/    # Job requirements
 │   │   ├── candidates/      # Candidate profiles + timeline
 │   │   ├── submissions/     # Submission tracker

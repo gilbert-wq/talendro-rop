@@ -14,8 +14,8 @@ import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage'
 import { PendingApproval } from './components/auth/PendingApproval'
 import { DashboardPage } from './components/dashboard/DashboardPage'
+import { RecruiterDashboardPage } from './components/dashboard/RecruiterDashboardPage'
 import { ClientsPage } from './components/clients/ClientsPage'
-import { VendorsPage } from './components/vendors/VendorsPage'
 import { RequirementsPage } from './components/requirements/RequirementsPage'
 import { MyProfilePage } from './components/profile/MyProfilePage'
 import { RecruitersOverviewPage } from './components/users/RecruitersOverviewPage'
@@ -83,6 +83,14 @@ function RequireLeadership({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Admin and leadership share DashboardPage's org-wide overview; recruiters
+// get a dedicated "what's on my plate" view (RecruiterDashboardPage) — see
+// the Dashboards section of the RBAC spec.
+function RoleDashboard() {
+  const { isLeadership } = useAuth()
+  return isLeadership ? <DashboardPage /> : <RecruiterDashboardPage />
+}
+
 function AppRoutes() {
   const { user } = useAuth()
   useEffect(() => {
@@ -97,9 +105,8 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/" element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+        <Route path="dashboard" element={<ErrorBoundary><RoleDashboard /></ErrorBoundary>} />
         <Route path="clients" element={<RequireLeadership><ErrorBoundary><ClientsPage /></ErrorBoundary></RequireLeadership>} />
-        <Route path="vendors" element={<RequireLeadership><ErrorBoundary><VendorsPage /></ErrorBoundary></RequireLeadership>} />
         <Route path="requirements" element={<ErrorBoundary><RequirementsPage /></ErrorBoundary>} />
         <Route path="profile" element={<ErrorBoundary><MyProfilePage /></ErrorBoundary>} />
         <Route path="recruiters" element={<RequireLeadership><ErrorBoundary><RecruitersOverviewPage /></ErrorBoundary></RequireLeadership>} />

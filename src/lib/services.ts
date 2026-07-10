@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { escapeFilterValue } from './utils'
 import type {
-  Profile, Client, Vendor, Requirement, Candidate,
+  Profile, Client, Requirement, Candidate,
   Submission, Interview, Offer, Team, TeamMember, Target,
   ActivityLog, Notification, CandidateDocument, CandidateNote,
   CandidateStageHistory, DashboardStats, RecruiterKPI
@@ -41,24 +41,6 @@ export const clientsService = {
 
   delete: (id: string) =>
     supabase.from('clients').delete().eq('id', id),
-}
-
-// ─── VENDORS ─────────────────────────────────────────────────────────────────
-export const vendorsService = {
-  getAll: () =>
-    supabase.from('vendors').select('*').order('vendor_name').limit(2000),
-
-  getActive: () =>
-    supabase.from('vendors').select('id, vendor_name').eq('status', 'active').order('vendor_name'),
-
-  create: (data: Omit<Vendor, 'id' | 'created_at' | 'updated_at'>) =>
-    supabase.from('vendors').insert(data).select().single(),
-
-  update: (id: string, data: Partial<Vendor>) =>
-    supabase.from('vendors').update(data).eq('id', id),
-
-  delete: (id: string) =>
-    supabase.from('vendors').delete().eq('id', id),
 }
 
 // ─── REQUIREMENTS ─────────────────────────────────────────────────────────────
@@ -210,25 +192,19 @@ export const stageHistoryService = {
 export const submissionsService = {
   getAll: () =>
     supabase.from('submissions')
-      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name), vendors(vendor_name)')
+      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name)')
       .order('submission_date', { ascending: false })
       .limit(2000),
 
   getById: (id: string) =>
     supabase.from('submissions')
-      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), vendors(vendor_name)')
+      .select('*, candidates(*), requirements(fg_id, requirement_title, clients(client_name))')
       .eq('id', id).single(),
 
   getByStatus: (status: string) =>
     supabase.from('submissions')
-      .select('*, candidates(candidate_name, mobile_number, current_location, total_experience, expected_ctc, skills), requirements(fg_id, requirement_title), vendors(vendor_name)')
+      .select('*, candidates(candidate_name, mobile_number, current_location, total_experience, expected_ctc, skills), requirements(fg_id, requirement_title)')
       .eq('status', status),
-
-  getByVendor: (vendorId: string) =>
-    supabase.from('submissions')
-      .select('*, candidates(candidate_name), requirements(fg_id, requirement_title)')
-      .eq('vendor_id', vendorId)
-      .order('submission_date', { ascending: false }),
 
   checkDuplicate: (requirementId: string, candidateId: string) =>
     supabase.from('submissions')
@@ -236,7 +212,7 @@ export const submissionsService = {
       .eq('requirement_id', requirementId)
       .eq('candidate_id', candidateId),
 
-  create: (data: Omit<Submission, 'id' | 'created_at' | 'updated_at' | 'candidates' | 'requirements' | 'profiles' | 'vendors'>) =>
+  create: (data: Omit<Submission, 'id' | 'created_at' | 'updated_at' | 'candidates' | 'requirements' | 'profiles'>) =>
     supabase.from('submissions').insert(data).select().single(),
 
   update: (id: string, data: Partial<Submission>) =>
@@ -389,7 +365,7 @@ export const activityLogsService = {
 // ─── DASHBOARD STATS ─────────────────────────────────────────────────────────
 export const dashboardService = {
   getStats: async (): Promise<DashboardStats> => {
-    const [reqs, candidates, submissions, interviews, offers, joinings, recruiters, clients, vendors] = await Promise.all([
+    const [reqs, candidates, submissions, interviews, offers, joinings, recruiters, clients] = await Promise.all([
       supabase.from('requirements').select('status'),
       supabase.from('candidates').select('id', { count: 'exact', head: true }),
       supabase.from('submissions').select('id', { count: 'exact', head: true }),
@@ -398,7 +374,6 @@ export const dashboardService = {
       supabase.from('offers').select('id', { count: 'exact', head: true }).eq('status', 'joined'),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'recruiter').eq('status', 'approved'),
       supabase.from('clients').select('id', { count: 'exact', head: true }),
-      supabase.from('vendors').select('id', { count: 'exact', head: true }),
     ])
     const reqData = reqs.data ?? []
     return {
@@ -413,7 +388,6 @@ export const dashboardService = {
       joinings: joinings.count ?? 0,
       recruiters: recruiters.count ?? 0,
       clients: clients.count ?? 0,
-      vendors: vendors.count ?? 0,
     }
   },
 

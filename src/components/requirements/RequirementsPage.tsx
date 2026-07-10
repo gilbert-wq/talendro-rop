@@ -201,7 +201,7 @@ export function RequirementsPage() {
   }
 
   // Recruiters get ONLY: position name, JD, deadline, date of entry, and
-  // status — no client/vendor info, no openings/priority/skills, and no
+  // status — no client info, no openings/priority/skills, and no
   // create/edit/delete actions. Leadership (admin or leadership role) gets
   // the full management table plus the new Deadline/Assigned To columns.
   const columns: ColumnDef<Requirement>[] = isLeadership ? [

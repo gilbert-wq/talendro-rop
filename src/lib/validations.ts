@@ -52,19 +52,6 @@ export const clientSchema = z.object({
 })
 export type ClientSchema = z.infer<typeof clientSchema>
 
-// ─── Vendor ───────────────────────────────────────────────────────────────────
-export const vendorSchema = z.object({
-  vendor_name: z.string().min(1, 'Vendor name is required'),
-  contact_person: optStr,
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
-  mobile: phone,
-  location: optStr,
-  gst_number: optStr,
-  status: z.enum(['active', 'inactive']),
-  notes: optStr,
-})
-export type VendorSchema = z.infer<typeof vendorSchema>
-
 // ─── Requirement ──────────────────────────────────────────────────────────────
 export const requirementSchema = z.object({
   fg_id: z.string().min(1, 'FG ID is required'),
@@ -119,7 +106,6 @@ export const submissionSchema = z.object({
   submission_date: z.string().min(1, 'Date required'),
   requirement_id: z.string().uuid('Select a requirement'),
   candidate_id: z.string().uuid('Select a candidate'),
-  vendor_id: optStr,
   partner_name: optStr,
   status: z.enum(['sourced', 'submitted', 'shortlisted', 'interview_scheduled', 'l1_cleared', 'l2_cleared', 'final_round', 'offered', 'joined', 'rejected']),
   notes: optStr,

@@ -11,7 +11,7 @@ interface AuthContextType {
   profile: Profile | null
   loading: boolean
   isAdmin: boolean
-  /** Admin OR leadership — the tier that gets full Clients/Vendors
+  /** Admin OR leadership — the tier that gets full Clients
    * management, requirement assignment, and recruiter-profile visibility,
    * but not system administration (user approval, role changes,
    * settings). "Leadership" is a permission tier, not a job title — a

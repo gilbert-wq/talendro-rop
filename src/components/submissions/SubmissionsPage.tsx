@@ -31,7 +31,6 @@ interface Submission {
   submission_date: string
   requirement_id: string
   candidate_id: string
-  vendor_id: string | null
   partner_name: string | null
   status: string
   notes: string | null
@@ -39,16 +38,14 @@ interface Submission {
   created_at: string
   candidates?: { candidate_name: string; mobile_number: string; email_address: string; current_location: string | null; total_experience: number | null; notice_period: number | null; current_ctc: number | null; expected_ctc: number | null; pan_number: string | null; date_of_birth: string | null; highest_qualification: string | null; university: string | null; passing_year: number | null; current_employer: string | null; can_join_within: number | null; preferred_location: string | null; skills: string[] }
   requirements?: { fg_id: string; requirement_title: string; clients?: { client_name: string } | null }
-  vendors?: { vendor_name: string } | null
 }
 
 interface Requirement { id: string; fg_id: string; requirement_title: string }
 interface Candidate { id: string; candidate_name: string; mobile_number: string }
-interface Vendor { id: string; vendor_name: string }
 
 const emptyForm = {
   submission_date: new Date().toISOString().split('T')[0],
-  requirement_id: '', candidate_id: '', vendor_id: '', partner_name: '', status: 'sourced', notes: '',
+  requirement_id: '', candidate_id: '', partner_name: '', status: 'sourced', notes: '',
 }
 
 export function SubmissionsPage() {
@@ -57,7 +54,6 @@ export function SubmissionsPage() {
   const [items, setItems] = useState<Submission[]>([])
   const [requirements, setRequirements] = useState<Requirement[]>([])
   const [candidates, setCandidates] = useState<Candidate[]>([])
-  const [vendors, setVendors] = useState<Vendor[]>([])
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Submission | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -66,42 +62,22 @@ export function SubmissionsPage() {
 
   useEffect(() => { fetchAll() }, [])
 
-  const SUBMISSIONS_SELECT_WITH_VENDOR = '*, candidates(*), requirements(fg_id, requirement_title, clients(client_name)), vendors(vendor_name)'
-  const SUBMISSIONS_SELECT_NO_VENDOR = '*, candidates(*), requirements(fg_id, requirement_title, clients(client_name))'
+  const SUBMISSIONS_SELECT = '*, candidates(*), requirements(fg_id, requirement_title, clients(client_name))'
 
   const fetchAll = async () => {
-    let subsRes = await supabase.from('submissions').select(SUBMISSIONS_SELECT_WITH_VENDOR).order('submission_date', { ascending: false })
+    const subsRes = await supabase.from('submissions').select(SUBMISSIONS_SELECT).order('submission_date', { ascending: false })
 
     if (subsRes.error) {
-      // This most commonly means PostgREST's schema cache hasn't picked up
-      // the submissions.vendor_id -> vendors.id foreign key yet (a known
-      // Supabase gotcha after running a migration via the SQL editor — it
-      // usually needs `NOTIFY pgrst, 'reload schema';` or a brief wait).
-      // Rather than showing "No records found" with no explanation
-      // (the previous behavior), retry without the vendors embed so real
-      // data still loads, and surface a specific, actionable warning.
-      const fallback = await supabase.from('submissions').select(SUBMISSIONS_SELECT_NO_VENDOR).order('submission_date', { ascending: false })
-      if (fallback.error) {
-        toast({ title: 'Could not load submissions', description: fallback.error.message, variant: 'destructive' })
-      } else {
-        toast({
-          title: 'Vendor names temporarily unavailable',
-          description: "Run NOTIFY pgrst, 'reload schema'; in the Supabase SQL editor to fix this.",
-          variant: 'destructive',
-        })
-      }
-      subsRes = fallback
+      toast({ title: 'Could not load submissions', description: subsRes.error.message, variant: 'destructive' })
     }
 
-    const [reqsRes, candsRes, vendsRes] = await Promise.all([
+    const [reqsRes, candsRes] = await Promise.all([
       supabase.from('requirements').select('id, fg_id, requirement_title').eq('status', 'open'),
       supabase.from('candidates').select('id, candidate_name, mobile_number'),
-      supabase.from('vendors').select('id, vendor_name').eq('status', 'active').order('vendor_name'),
     ])
     setItems(subsRes.data ?? [])
     setRequirements(reqsRes.data ?? [])
     setCandidates(candsRes.data ?? [])
-    setVendors(vendsRes.data ?? [])
   }
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setOpen(true) }
@@ -109,7 +85,7 @@ export function SubmissionsPage() {
     setEditing(s)
     setForm({
       submission_date: s.submission_date, requirement_id: s.requirement_id,
-      candidate_id: s.candidate_id, vendor_id: s.vendor_id ?? '', partner_name: s.partner_name ?? '',
+      candidate_id: s.candidate_id, partner_name: s.partner_name ?? '',
       status: s.status, notes: s.notes ?? '',
     })
     setOpen(true)
@@ -121,17 +97,9 @@ export function SubmissionsPage() {
     }
     setSaving(true)
     try {
-      // SECURITY: partner_name is plain text on the submissions row, which
-      // recruiters can read (submissions_select is is_approved_user()).
-      // Previously this auto-copied the selected vendor's name into it,
-      // which leaked the vendor's identity right back around the new
-      // leadership-only vendors RLS. partner_name is now only ever the
-      // free-text fallback a leadership user types when no formal vendor
-      // record is selected — never a denormalized copy of vendor_name.
       const payload = {
         ...form,
-        vendor_id: form.vendor_id || null,
-        partner_name: form.vendor_id ? null : (form.partner_name || null),
+        partner_name: form.partner_name || null,
       }
       if (editing) {
         await supabase.from('submissions').update(payload).eq('id', editing.id)
@@ -171,7 +139,6 @@ export function SubmissionsPage() {
     ...(isLeadership ? {
       'Client': (s.requirements as any)?.clients?.client_name ?? '',
       'Partner': s.partner_name ?? '',
-      'Vendor': s.vendors?.vendor_name ?? '',
     } : {}),
     'Candidate Name': s.candidates?.candidate_name ?? '',
     'Contact': s.candidates?.mobile_number ?? '',
@@ -204,20 +171,15 @@ export function SubmissionsPage() {
       id: 'position', header: 'Position',
       cell: ({ row }) => <span className="text-xs">{row.original.requirements?.requirement_title}</span>,
     },
-    // Client and Vendor columns are leadership-only — recruiters lose both
-    // client portfolio visibility and vendor details (name/contact info)
-    // per the access-control changes above. Spreading an empty array when
-    // not leadership keeps these columns out entirely rather than showing
-    // a column full of "—" (which RLS would produce anyway, but an absent
-    // column reads cleaner than a uniformly blank one).
+    // Client column is leadership-only — recruiters lose client portfolio
+    // visibility per the access-control changes above. Spreading an empty
+    // array when not leadership keeps the column out entirely rather than
+    // showing a column full of "—" (which RLS would produce anyway, but an
+    // absent column reads cleaner than a uniformly blank one).
     ...(isLeadership ? [
       {
         id: 'client', header: 'Client',
         cell: ({ row }: any) => (row.original.requirements as any)?.clients?.client_name ?? '—',
-      },
-      {
-        id: 'vendor', header: 'Vendor',
-        cell: ({ row }: any) => row.original.vendors?.vendor_name ?? row.original.partner_name ?? '—',
       },
     ] as ColumnDef<Submission>[] : []),
     {
@@ -325,24 +287,10 @@ export function SubmissionsPage() {
               </Select>
             </div>
             {isLeadership && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>Vendor / Staffing Partner</Label>
-                  <Select value={form.vendor_id || 'none'} onValueChange={v => setForm(f => ({ ...f, vendor_id: v === 'none' ? '' : v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select vendor (optional)" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None (direct sourcing)</SelectItem>
-                      {vendors.map(v => (
-                        <SelectItem key={v.id} value={v.id}>{v.vendor_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Partner Name (free text, used if no vendor selected)</Label>
-                  <Input value={form.partner_name} onChange={e => setForm(f => ({ ...f, partner_name: e.target.value }))} placeholder="Partner company name" disabled={!!form.vendor_id} />
-                </div>
-              </>
+              <div className="space-y-1.5">
+                <Label>Partner Name (optional, free text)</Label>
+                <Input value={form.partner_name} onChange={e => setForm(f => ({ ...f, partner_name: e.target.value }))} placeholder="Sourcing partner company name" />
+              </div>
             )}
             <div className="space-y-1.5">
               <Label>Status</Label>

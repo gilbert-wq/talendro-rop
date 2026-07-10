@@ -15,7 +15,6 @@ type UploadResult = { success: number; errors: string[] }
 function downloadTemplate(type: string) {
   const templates: Record<string, string[][]> = {
     candidates: [['candidate_name', 'mobile_number', 'email_address', 'pan_number', 'current_location', 'total_experience', 'skills', 'current_employer', 'current_ctc', 'expected_ctc', 'notice_period', 'highest_qualification']],
-    vendors: [['vendor_name', 'contact_person', 'email', 'mobile', 'location', 'gst_number']],
     clients: [['client_name', 'contact_person', 'email', 'phone', 'industry']],
     requirements: [['fg_id', 'requirement_title', 'category', 'mandatory_skills', 'location', 'openings', 'priority', 'experience_min', 'experience_max']],
   }
@@ -49,7 +48,7 @@ export function BulkUploadPage() {
   const { user, isLeadership } = useAuth()
   const { toast } = useToast()
   const [results, setResults] = useState<Record<string, UploadResult | null>>({
-    candidates: null, vendors: null, clients: null, requirements: null,
+    candidates: null, clients: null, requirements: null,
   })
   const [uploading, setUploading] = useState<string | null>(null)
 
@@ -88,15 +87,6 @@ export function BulkUploadPage() {
               notice_period: row.notice_period ? Number(row.notice_period) : null,
               highest_qualification: row.highest_qualification || null,
               created_by: user!.id,
-            })
-            success.push(i)
-          } else if (type === 'vendors') {
-            if (!row.vendor_name) { errors.push(`Row ${i + 2}: Vendor name required`); continue }
-            await supabase.from('vendors').insert({
-              vendor_name: row.vendor_name, contact_person: row.contact_person || null,
-              email: row.email || null, mobile: row.mobile || null,
-              location: row.location || null, gst_number: row.gst_number || null,
-              status: 'active', created_by: user!.id,
             })
             success.push(i)
           } else if (type === 'clients') {
@@ -145,13 +135,12 @@ export function BulkUploadPage() {
 
   const allUploadTypes = [
     { id: 'candidates', label: 'Candidates', description: 'Import candidate profiles in bulk' },
-    { id: 'vendors', label: 'Vendors', description: 'Import vendor database', leadershipOnly: true },
     { id: 'clients', label: 'Clients', description: 'Import client records', leadershipOnly: true },
     { id: 'requirements', label: 'Requirements', description: 'Import job requirements', leadershipOnly: true },
   ]
-  // vendors/clients/requirements inserts are leadership-only via RLS now —
-  // hiding these tabs for recruiters avoids every row in those imports
-  // failing with a confusing permissions error.
+  // clients/requirements inserts are leadership-only via RLS now — hiding
+  // these tabs for recruiters avoids every row in those imports failing
+  // with a confusing permissions error.
   const uploadTypes = allUploadTypes.filter(t => !t.leadershipOnly || isLeadership)
 
   return (

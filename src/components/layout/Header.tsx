@@ -13,7 +13,6 @@ const routeTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/profile': 'My Profile',
   '/clients': 'Client Management',
-  '/vendors': 'Vendor Management',
   '/requirements': 'Requirements',
   '/recruiters': 'Recruiters',
   '/submissions': 'Submission Tracker',

@@ -12,7 +12,6 @@ export type SubmissionStatus =
 export type InterviewResult = 'pending' | 'cleared' | 'rejected' | 'on_hold' | 'no_show'
 export type OfferStatus = 'offered' | 'accepted' | 'declined' | 'joined' | 'no_show' | 'deferred'
 export type ClientStatus = 'active' | 'inactive'
-export type VendorStatus = 'active' | 'inactive'
 export type NotificationType = 'info' | 'success' | 'warning' | 'error'
 export type DocumentType = 'resume' | 'offer_letter' | 'id_proof' | 'certificate' | 'other'
 export type PeriodType = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
@@ -210,35 +209,6 @@ export interface ClientFormData {
 }
 
 // ============================================================
-// VENDOR
-// ============================================================
-export interface Vendor {
-  id: string
-  vendor_name: string
-  contact_person: string | null
-  email: string | null
-  mobile: string | null
-  location: string | null
-  gst_number: string | null
-  status: VendorStatus
-  notes: string | null
-  created_by: string
-  created_at: string
-  updated_at: string
-}
-
-export interface VendorFormData {
-  vendor_name: string
-  contact_person: string
-  email: string
-  mobile: string
-  location: string
-  gst_number: string
-  status: VendorStatus
-  notes: string
-}
-
-// ============================================================
 // REQUIREMENT
 // ============================================================
 export interface Requirement {
@@ -368,7 +338,6 @@ export interface Submission {
   submission_date: string
   requirement_id: string
   candidate_id: string
-  vendor_id: string | null
   partner_name: string | null
   status: SubmissionStatus
   notes: string | null
@@ -379,7 +348,6 @@ export interface Submission {
   candidates?: CandidateSubmissionView | null
   requirements?: RequirementSubmissionView | null
   profiles?: Pick<Profile, 'full_name'> | null
-  vendors?: Pick<Vendor, 'vendor_name'> | null
 }
 
 export interface CandidateSubmissionView {
@@ -413,7 +381,6 @@ export interface SubmissionFormData {
   submission_date: string
   requirement_id: string
   candidate_id: string
-  vendor_id: string
   partner_name: string
   status: SubmissionStatus
   notes: string
@@ -608,7 +575,6 @@ export interface DashboardStats {
   joinings: number
   recruiters: number
   clients: number
-  vendors: number
 }
 
 // ============================================================

@@ -39,7 +39,7 @@ export function exportSubmissionTracker(submissions: Submission[]) {
     'FG ID': s.requirements?.fg_id ?? '',
     'Client': (s.requirements as any)?.clients?.client_name ?? '',
     'Position': s.requirements?.requirement_title ?? '',
-    'Partner / Vendor': s.partner_name ?? '',
+    'Partner': s.partner_name ?? '',
     'Candidate Name': s.candidates?.candidate_name ?? '',
     'Contact Number': s.candidates?.mobile_number ?? '',
     'Email': s.candidates?.email_address ?? '',

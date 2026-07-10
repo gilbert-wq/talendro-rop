@@ -100,8 +100,12 @@ export function DashboardPage() {
     { label: 'Total Joinings', value: stats.joinings, icon: TrendingUp, color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-950' },
   ]
 
-  const recruiterCards = [
+  // Leadership gets a slightly leaner card set than admin (no recruiter
+  // headcount) — recruiters themselves no longer render this component at
+  // all; they get RecruiterDashboardPage instead (see App.tsx RoleDashboard).
+  const leadershipCards = [
     { label: 'Requirements', value: stats.requirements, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },
+    { label: 'Clients', value: stats.clients, icon: Building2, color: 'text-cyan-600', bg: 'bg-cyan-50 dark:bg-cyan-950' },
     { label: 'Candidates', value: stats.candidates, icon: UserCheck, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950' },
     { label: 'Submissions', value: stats.submissions, icon: Send, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950' },
     { label: 'Interviews', value: stats.interviews, icon: Calendar, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
@@ -109,7 +113,7 @@ export function DashboardPage() {
     { label: 'Joinings', value: stats.joinings, icon: TrendingUp, color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-950' },
   ]
 
-  const cards = isAdmin ? adminCards : recruiterCards
+  const cards = isAdmin ? adminCards : leadershipCards
 
   return (
     <div className="space-y-6">
