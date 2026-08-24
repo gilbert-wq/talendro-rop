@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Loader2, Upload, Save, Mail, Shield, Briefcase, Calendar } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Label, Progress, Separator } from '@/components/ui/components'
+import { Loader2, Upload, Save, Mail, Shield, Calendar } from 'lucide-react'
+import { Card, CardContent, Label, Progress, Separator } from '@/components/ui/components'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms'

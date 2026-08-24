@@ -2,9 +2,9 @@ import { supabase } from './supabase'
 import { escapeFilterValue } from './utils'
 import type {
   Profile, Client, Requirement, Candidate,
-  Submission, Interview, Offer, Team, TeamMember, Target,
-  ActivityLog, Notification, CandidateDocument, CandidateNote,
-  CandidateStageHistory, DashboardStats, RecruiterKPI
+  Submission, Interview, Offer, Team, Target,
+  Notification, CandidateDocument,
+  DashboardStats, RecruiterKPI
 } from '@/types'
 
 // ─── PROFILES ─────────────────────────────────────────────────────────────────

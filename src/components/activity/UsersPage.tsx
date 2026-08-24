@@ -28,7 +28,7 @@ const ROLE_OPTIONS = [
 export function UsersPage() {
   const { toast } = useToast()
   const [users, setUsers] = useState<Profile[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null)
 
   useEffect(() => { fetchUsers() }, [])

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Plus, Edit, Download, Filter } from 'lucide-react'
+import { Plus, Edit, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
@@ -60,6 +60,7 @@ export function SubmissionsPage() {
   const [saving, setSaving] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-time fetch on mount
   useEffect(() => { fetchAll() }, [])
 
   const SUBMISSIONS_SELECT = '*, candidates(*), requirements(fg_id, requirement_title, clients(client_name))'

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { FileText, ExternalLink, ArrowLeft } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/forms'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/components'
 import { companySopService } from '@/lib/userInsightsService'
 import { formatDate } from '@/lib/utils'

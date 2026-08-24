@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Settings, User, Bell, Shield, Database, Palette } from 'lucide-react'
+import { Settings, User, Bell, Shield, Database } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'

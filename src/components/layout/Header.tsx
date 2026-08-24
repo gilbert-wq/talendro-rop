@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Bell, Sun, Moon, Search } from 'lucide-react'
+import { Bell, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDateTime } from '@/lib/utils'
@@ -39,9 +38,12 @@ export function Header({ sidebarCollapsed, darkMode, onToggleDark }: HeaderProps
 
   const title = routeTitles[location.pathname] ?? 'Talendro ROP'
 
+  // Intentionally re-fetches only when `user` changes, not on every
+  // re-render that adding the fetchNotifs closure itself would cause.
   useEffect(() => {
     if (!user) return
     fetchNotifs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchNotifs = async () => {

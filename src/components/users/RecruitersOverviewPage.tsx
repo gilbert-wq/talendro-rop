@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/components'
 import { DataTable } from '@/components/ui/data-table'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { formatDate, cn, getStatusBadgeClass } from '@/lib/utils'
+import { cn, getStatusBadgeClass } from '@/lib/utils'
 import { RecruiterProfileCard } from './RecruiterProfileCard'
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -28,7 +28,7 @@ interface RecruiterRow {
  * lives on the Requirements page itself. */
 export function RecruitersOverviewPage() {
   const [recruiters, setRecruiters] = useState<RecruiterRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [profileCardUserId, setProfileCardUserId] = useState<string | null>(null)
 
   useEffect(() => { load() }, [])

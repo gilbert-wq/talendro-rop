@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { Plus, Edit, Trash2, Download, Upload, Eye } from 'lucide-react'
+import { Plus, Edit, Trash2, Download, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
@@ -51,9 +51,9 @@ export function RequirementsPage() {
   const { user, isLeadership } = useAuth()
   const { toast } = useToast()
   const [items, setItems] = useState<Requirement[]>([])
+  const [, setLoading] = useState(true)
   const [clients, setClients] = useState<Client[]>([])
   const [recruiters, setRecruiters] = useState<RecruiterOption[]>([])
-  const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Requirement | null>(null)
   const [pipelineReq, setPipelineReq] = useState<Requirement | null>(null)

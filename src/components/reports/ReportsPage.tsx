@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
-import { Download, FileText, Users, Send, Calendar, Gift, TrendingUp } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms'
@@ -23,8 +23,9 @@ export function ReportsPage() {
   const [allSubmissions, setAllSubmissions] = useState<any[]>([])
   const [allCandidates, setAllCandidates] = useState<any[]>([])
   const [allReqs, setAllReqs] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-runs only on period change
   useEffect(() => { fetchReports() }, [period])
 
   const fetchReports = async () => {
@@ -36,10 +37,9 @@ export function ReportsPage() {
       .select('*, candidates(candidate_name), requirements(fg_id, requirement_title, clients(client_name)), profiles!submitted_by(full_name)')
       .gte('created_at', since.toISOString())
 
-    const [{ data: cands }, { data: reqs }, { data: profiles }] = await Promise.all([
+    const [{ data: cands }, { data: reqs }] = await Promise.all([
       supabase.from('candidates').select('*').order('created_at', { ascending: false }),
       supabase.from('requirements').select('*, clients(client_name)').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, full_name').eq('role', 'recruiter').eq('status', 'approved'),
     ])
 
     const subsData = subsRes.data ?? []

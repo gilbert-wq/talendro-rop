@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { formatDate, formatCTC, formatStatus } from './utils'
+import { formatDate, formatStatus } from './utils'
 import type { Submission, Candidate, Requirement, Interview, Offer } from '@/types'
 
 // ─── CSV Export ───────────────────────────────────────────────────────────────

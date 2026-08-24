@@ -3,10 +3,6 @@ import { z } from 'zod'
 // ─── Common ───────────────────────────────────────────────────────────────────
 const phone = z.string().optional().or(z.literal(''))
 const optStr = z.string().optional().or(z.literal(''))
-const optNum = z.string()
-  .optional()
-  .transform(v => (v && v !== '' ? Number(v) : null))
-  .refine(v => v === null || !isNaN(v as number), 'Must be a number')
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const loginSchema = z.object({

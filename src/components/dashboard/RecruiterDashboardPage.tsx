@@ -3,7 +3,7 @@ import { FileText, Calendar, Bell, Send, Gift, UserCheck, TrendingUp, Clock } fr
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/components'
-import { formatDate, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { dashboardService } from '@/lib/services'
 import type { RecruiterKPI } from '@/types'
 import { CompanyInfoCard } from './CompanyInfoCard'
@@ -43,8 +43,11 @@ export function RecruiterDashboardPage() {
   const [myKpi, setMyKpi] = useState<RecruiterKPI | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Intentionally re-fetches only when `user` becomes available, not on
+  // every re-render that adding the fetchAll closure itself would cause.
   useEffect(() => {
     if (user) fetchAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchAll = async () => {

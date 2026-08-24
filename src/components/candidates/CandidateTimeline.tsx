@@ -22,7 +22,7 @@ const DOC_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
-export function CandidateTimeline({ candidateId, candidateName }: Props) {
+export function CandidateTimeline({ candidateId, candidateName: _candidateName }: Props) {
   const { user } = useAuth()
   const { toast } = useToast()
   const [history, setHistory] = useState<CandidateStageHistory[]>([])
@@ -33,8 +33,12 @@ export function CandidateTimeline({ candidateId, candidateName }: Props) {
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const [docType, setDocType] = useState('other')
 
+  // Intentionally re-fetches only when the candidate changes, not on every
+  // re-render that would follow adding the (stable-shaped but re-created)
+  // fetchAll closure itself as a dependency.
   useEffect(() => {
     fetchAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateId])
 
   const fetchAll = async () => {
@@ -67,7 +71,7 @@ export function CandidateTimeline({ candidateId, candidateName }: Props) {
   const handleDocUpload = async (file: File) => {
     if (!user) return
     setUploadingDoc(true)
-    const { data, error } = await candidateDocumentsService.upload(candidateId, file, docType, user.id)
+    const { error } = await candidateDocumentsService.upload(candidateId, file, docType, user.id)
     if (error) {
       toast({ title: 'Upload failed', variant: 'destructive' })
     } else {

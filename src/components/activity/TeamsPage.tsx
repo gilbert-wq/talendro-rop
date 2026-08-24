@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, Edit, Trash2, Users, UserPlus, UserMinus } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { logActivity } from '@/lib/activityLogger'

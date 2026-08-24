@@ -82,6 +82,7 @@ export function CandidateDetailDialog({ submissionId, open, onOpenChange, onChan
     setLoading(false)
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-runs only on open/submissionId change
   useEffect(() => { if (open) load() }, [open, submissionId])
 
   const handleRefreshAfterChange = () => {

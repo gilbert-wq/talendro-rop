@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, Edit, Trash2, Target, TrendingUp } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label, Card, CardContent, CardHeader, CardTitle, Progress } from '@/components/ui/components'
+import { Label, Card, CardContent, Progress } from '@/components/ui/components'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/forms'
 import { DataTable } from '@/components/ui/data-table'
@@ -32,6 +31,7 @@ export function TargetsPage() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-time fetch on mount
   useEffect(() => { fetchAll() }, [])
 
   const fetchAll = async () => {

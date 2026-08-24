@@ -7,7 +7,6 @@ import { useToast } from '@/hooks/useToast'
 import { logActivity } from '@/lib/activityLogger'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/components'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/forms'
 import { generateFGId, escapeFilterValue } from '@/lib/utils'
 
 type UploadResult = { success: number; errors: string[] }

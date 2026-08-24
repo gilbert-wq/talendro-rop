@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Upload, Trash2, FileText, Loader2 } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/forms'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label, Skeleton } from '@/components/ui/components'

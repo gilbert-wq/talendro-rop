@@ -19,7 +19,7 @@ interface LogEntry {
 
 export function ActivityPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
 
   useEffect(() => { fetchLogs() }, [])
 

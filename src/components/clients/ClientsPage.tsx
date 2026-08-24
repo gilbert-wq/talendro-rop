@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/useToast'
 import { logActivity } from '@/lib/activityLogger'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label, Textarea, Badge } from '@/components/ui/components'
+import { Label, Textarea } from '@/components/ui/components'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/forms'
 import { DataTable } from '@/components/ui/data-table'
@@ -34,7 +34,7 @@ export function ClientsPage() {
   const { user, isAdmin } = useAuth()
   const { toast } = useToast()
   const [clients, setClients] = useState<Client[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Client | null>(null)
   const [form, setForm] = useState(emptyForm)

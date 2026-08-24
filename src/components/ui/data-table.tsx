@@ -16,7 +16,7 @@ interface DataTableProps<T> {
   searchKey?: string
 }
 
-export function DataTable<T>({ data, columns, searchPlaceholder = 'Search…', searchKey }: DataTableProps<T>) {
+export function DataTable<T>({ data, columns, searchPlaceholder = 'Search…', searchKey: _searchKey }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')

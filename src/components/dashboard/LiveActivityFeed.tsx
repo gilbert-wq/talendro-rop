@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/compon
 import { Skeleton } from '@/components/ui/components'
 import { liveActivityService } from '@/lib/userInsightsService'
 import { supabase } from '@/lib/supabase'
-import { formatDateTime } from '@/lib/utils'
 import type { LiveActivityItem } from '@/types'
 
 /** FEATURE 7: live activity monitor. Loads the latest 50 via

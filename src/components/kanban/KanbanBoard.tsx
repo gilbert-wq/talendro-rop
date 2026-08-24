@@ -46,7 +46,6 @@ interface KanbanBoardProps {
  * and Interviews pages were removed in favor of consolidating everything
  * here, contextual to a specific requirement). */
 export function KanbanBoard({ requirementId }: KanbanBoardProps) {
-  const { user } = useAuth()
   const { toast } = useToast()
   const [cards, setCards] = useState<KanbanCard[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,6 +58,7 @@ export function KanbanBoard({ requirementId }: KanbanBoardProps) {
   const [addOpen, setAddOpen] = useState(false)
   const [detailSubmissionId, setDetailSubmissionId] = useState<string | null>(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally re-runs only on requirementId change
   useEffect(() => { fetchSubmissions() }, [requirementId])
 
   const fetchSubmissions = async () => {

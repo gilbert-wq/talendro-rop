@@ -1,6 +1,6 @@
 import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { AlertTriangle, Lock, WifiOff, Clock, Home, ArrowLeft } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Lock, WifiOff, Clock, Home, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 

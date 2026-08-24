@@ -22,7 +22,6 @@ interface NavItem {
 }
 
 function useNavItems() {
-  const { user } = useAuth()
   const { data: notifs = [] } = useNotifications()
   const unread = notifs.filter((n: any) => !n.read).length
 
